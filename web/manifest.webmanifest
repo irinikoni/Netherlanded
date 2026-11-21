@@ -1,0 +1,18 @@
+{
+  "name": "Netherlanded",
+  "short_name": "Netherlanded",
+  "description": "Personal arrival checklist, deadlines, and local services for international students in the Netherlands.",
+  "scope": "../",
+  "start_url": "../netherlanded-app.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1d5a3a",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

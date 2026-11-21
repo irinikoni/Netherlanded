@@ -1,0 +1,123 @@
+<!doctype html>
+<!-- Copyright (c) 2026 Eirini Konidari. All rights reserved. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self' https:; img-src 'self'; base-uri 'none'; form-action 'none'">
+  <title>Netherlanded — University Support Insights</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --card: #ffffff;
+      --text: #14171a;
+      --muted: #5a6570;
+      --border: #dfe4ea;
+      --accent: #1d5a3a;
+      --soft: #eef2f6;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    main {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 32px 20px 56px;
+    }
+    header { margin-bottom: 20px; }
+    header h1 { margin: 0 0 6px; font-size: 24px; font-weight: 700; }
+    header p { margin: 0; color: var(--muted); }
+    .nl-auth {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin: 0 0 20px;
+      padding: 12px 14px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+    .nl-auth label { font-size: 13px; color: var(--muted); }
+    .nl-auth input {
+      flex: 1 1 240px;
+      min-width: 180px;
+      padding: 7px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font: inherit;
+    }
+    .nl-auth button {
+      padding: 7px 12px;
+      border: 1px solid var(--accent);
+      background: var(--accent);
+      color: #fff;
+      border-radius: 6px;
+      font: 600 13px/1.2 inherit;
+      cursor: pointer;
+    }
+    .nl-auth button.secondary {
+      background: transparent;
+      color: var(--accent);
+    }
+    .nl-stamp, .nl-status, .nl-foot { color: var(--muted); font-size: 13.5px; }
+    .nl-table {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 20px;
+      margin: 18px 0;
+      overflow-x: auto;
+    }
+    .nl-table h2 { margin: 0 0 12px; font-size: 17px; }
+    .nl-grid {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    .nl-grid th, .nl-grid td {
+      border-bottom: 1px solid var(--border);
+      padding: 9px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+    .nl-grid thead th {
+      color: var(--muted);
+      font-weight: 600;
+      background: var(--soft);
+    }
+    .nl-rate { display: block; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .nl-n { display: block; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .nl-hidden {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--soft);
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .nl-none { color: var(--muted); }
+    .nl-note, .nl-empty { margin: 10px 0 0; color: var(--muted); font-size: 13.5px; }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Netherlanded — University Support Insights</h1>
+      <p>Disclosure-controlled aggregate statistics only.</p>
+    </header>
+    <form class="nl-auth" id="nl-auth-form" autocomplete="off">
+      <label for="nl-staff-token">Staff JWT</label>
+      <input id="nl-staff-token" type="password" placeholder="Paste institution staff Bearer token" aria-label="Staff JWT token">
+      <button type="submit">Load report</button>
+      <button type="button" class="secondary" id="nl-staff-clear">Clear</button>
+    </form>
+    <div id="nl-stats" data-endpoint="/api/stats"></div>
+  </main>
+  <script type="module" src="./stats.js"></script>
+</body>
+</html>

@@ -1,0 +1,246 @@
+-- Copyright (c) 2026 Eirini Konidari. All rights reserved.
+-- netherlanded-analytics :: 001_schema.sql
+-- PostgreSQL 15 or newer.
+-- Aggregate-only analytics for the Netherlanded settlement app.
+-- Tier 1 and Tier 2 are separate stores. Nothing joins them.
+
+begin;
+
+create schema if not exists nl;
+
+do $do$ begin
+  if not exists (select 1 from pg_type t join pg_namespace n on n.oid = t.typnamespace
+                 where n.nspname = 'nl' and t.typname = 't1_event') then
+    create type nl.t1_event as enum ('step_applies', 'step_completed', 'technical_error', 'cohort_joined');
+  end if;
+end $do$;
+
+do $do$ begin
+  if not exists (select 1 from pg_type t join pg_namespace n on n.oid = t.typnamespace
+                 where n.nspname = 'nl' and t.typname = 't2_event') then
+    create type nl.t2_event as enum ('joined', 'arrived', 'step_applies', 'step_opened',
+                                     'step_completed', 'deadline_missed', 'scam_checked');
+  end if;
+end $do$;
+
+do $do$ begin
+  if not exists (select 1 from pg_type t join pg_namespace n on n.oid = t.typnamespace
+                 where n.nspname = 'nl' and t.typname = 'category') then
+    create type nl.category as enum ('admin', 'housing', 'money', 'health', 'work', 'social', 'wellbeing');
+  end if;
+end $do$;
+
+do $do$ begin
+  if not exists (select 1 from pg_type t join pg_namespace n on n.oid = t.typnamespace
+                 where n.nspname = 'nl' and t.typname = 'suppress_reason') then
+    create type nl.suppress_reason as enum ('floor', 'delta', 'sticky',
+                                            'complementary', 'over_suppression');
+  end if;
+end $do$;
+
+create table if not exists nl.institution (
+  institution  text primary key,
+  display_name text not null,
+  active       boolean not null default true,
+  created_at   timestamptz not null default now(),
+  constraint institution_key_chk check (institution ~ '^[a-z0-9_-]{2,32}$')
+);
+
+create table if not exists nl.step_vocab (
+  step     text primary key,
+  ord      integer not null,
+  is_known boolean not null default true,
+  constraint step_key_chk check (step ~ '^[a-z0-9_]{2,32}$')
+);
+
+insert into nl.step_vocab (step, ord, is_known) values ('other', 999, false)
+on conflict (step) do nothing;
+
+create table if not exists nl.release_table (
+  table_id text primary key,
+  title    text not null,
+  tier     smallint not null check (tier in (1, 2)),
+  row_axis text not null,
+  col_axis text not null,
+  metric   text not null
+);
+
+insert into nl.release_table (table_id, title, tier, row_axis, col_axis, metric) values
+  ('t1_institution_intake', 'Steps started and finished, by arrival semester',
+   1, 'institution', 'intake', 'completed / started'),
+  ('t1_category_totals', 'Steps started and finished, by category',
+   1, 'category', 'intake', 'completed / started'),
+  ('t1_error_rate', 'Technical errors, by arrival semester',
+   1, 'institution', 'intake', 'errors / events'),
+  ('t2_institution_intake', 'Arrivals, by arrival semester',
+   2, 'institution', 'intake', 'arrived / joined'),
+  ('t2_step_totals', 'Journey steps, by arrival semester',
+   2, 'step', 'intake', 'completed / started')
+on conflict (table_id) do nothing;
+
+create table if not exists nl.snapshot (
+  snapshot_id  bigserial primary key,
+  built_at     timestamptz not null default now(),
+  published    boolean not null default false,
+  published_at timestamptz,
+  note         text
+);
+
+create table if not exists nl.raw_t1 (
+  id          bigserial primary key,
+  institution text not null references nl.institution (institution),
+  intake      text not null,
+  event       nl.t1_event not null,
+  category    nl.category,
+  app_version text not null,
+  received_at timestamptz not null default now(),
+  week_start  date not null default ((date_trunc('week', now()))::date),
+  fold_run    bigint,
+  constraint raw_t1_intake_chk check (intake ~ '^[0-9]{4}-(sep|feb)$'),
+  constraint raw_t1_version_chk check (app_version ~ '^[0-9a-z]{4,64}$')
+);
+
+create index if not exists raw_t1_unfolded_idx on nl.raw_t1 (id) where fold_run is null;
+create index if not exists raw_t1_received_idx on nl.raw_t1 (received_at);
+
+create table if not exists nl.raw_t2 (
+  id          bigserial primary key,
+  institution text not null references nl.institution (institution),
+  region      text not null,
+  intake      text not null,
+  event       nl.t2_event not null,
+  step        text,
+  high_risk   boolean,
+  received_at timestamptz not null default now(),
+  week_start  date not null default ((date_trunc('week', now()))::date),
+  fold_run    bigint,
+  constraint raw_t2_region_chk check (region ~ '^[a-z0-9_-]{2,32}$'),
+  constraint raw_t2_intake_chk check (intake ~ '^[0-9]{4}-(sep|feb)$'),
+  constraint raw_t2_step_chk check (step is null or step ~ '^[a-z0-9_]{2,32}$')
+);
+
+create index if not exists raw_t2_unfolded_idx on nl.raw_t2 (id) where fold_run is null;
+create index if not exists raw_t2_received_idx on nl.raw_t2 (received_at);
+
+create table if not exists nl.unmapped_value (
+  id         bigserial primary key,
+  field      text not null,
+  value      text not null,
+  hits       bigint not null default 0,
+  first_seen timestamptz not null default now(),
+  last_seen  timestamptz not null default now(),
+  unique (field, value)
+);
+
+create table if not exists nl.accumulation_run (
+  run_id      bigserial primary key,
+  started_at  timestamptz not null default now(),
+  finished_at timestamptz,
+  max_t1      bigint,
+  max_t2      bigint,
+  cells       bigint
+);
+
+create table if not exists nl.accumulated_cell (
+  table_id   text not null references nl.release_table (table_id),
+  row_key    text not null,
+  col_key    text not null,
+  num        bigint not null default 0 check (num >= 0),
+  denom      bigint not null default 0 check (denom >= 0),
+  updated_at timestamptz not null default now(),
+  primary key (table_id, row_key, col_key)
+);
+
+create table if not exists nl.t1_cohort (
+  institution  text not null,
+  intake       text not null,
+  contributors bigint not null default 0 check (contributors >= 0),
+  updated_at   timestamptz not null default now(),
+  primary key (institution, intake)
+);
+
+create table if not exists nl.t2_base (
+  institution text not null,
+  intake      text not null,
+  joined      bigint not null default 0 check (joined >= 0),
+  arrived     bigint not null default 0 check (arrived >= 0),
+  updated_at  timestamptz not null default now(),
+  primary key (institution, intake)
+);
+
+create table if not exists nl.stage_cell (
+  table_id   text not null,
+  row_key    text not null,
+  col_key    text not null,
+  num_true   bigint not null,
+  denom_true bigint not null,
+  num_pub    bigint,
+  denom_pub  bigint,
+  rate       numeric(4, 3),
+  band       smallint,
+  reason     nl.suppress_reason,
+  built_at   timestamptz not null default now(),
+  primary key (table_id, row_key, col_key)
+);
+
+create table if not exists nl.published_cell (
+  snapshot_id bigint not null references nl.snapshot (snapshot_id) on delete cascade,
+  table_id    text not null,
+  row_key     text not null,
+  col_key     text not null,
+  num         bigint not null,
+  denom       bigint not null,
+  rate        numeric(4, 3) not null,
+  rate_true   numeric(7, 5) not null,
+  band        smallint,
+  primary key (snapshot_id, table_id, row_key, col_key)
+);
+
+create table if not exists nl.suppressed_cell (
+  snapshot_id bigint not null references nl.snapshot (snapshot_id) on delete cascade,
+  table_id    text not null,
+  row_key     text not null,
+  col_key     text not null,
+  reason      nl.suppress_reason not null,
+  bucket      text not null check (bucket in ('<15', '15-49', '50-99', '100+')),
+  primary key (snapshot_id, table_id, row_key, col_key)
+);
+
+create or replace function nl.bucket(p_n bigint)
+returns text
+language sql
+immutable
+as $fn$
+  select case
+           when p_n is null then '<15'
+           when p_n < 15  then '<15'
+           when p_n < 50  then '15-49'
+           when p_n < 100 then '50-99'
+           else '100+'
+         end;
+$fn$;
+
+create or replace function nl.dim_label(p_dim text, p_key text)
+returns text
+language sql
+stable
+as $fn$
+  select case p_dim
+           when 'institution' then
+             coalesce((select i.display_name from nl.institution i
+                        where i.institution = p_key), p_key)
+           when 'intake' then
+             case split_part(p_key, '-', 2)
+               when 'sep' then 'Sep ' || split_part(p_key, '-', 1)
+               when 'feb' then 'Feb ' || split_part(p_key, '-', 1)
+               else p_key
+             end
+           when 'step' then
+             coalesce((select initcap(replace(v.step, '_', ' ')) from nl.step_vocab v
+                        where v.step = p_key),
+                      initcap(replace(p_key, '_', ' ')))
+           else initcap(replace(p_key, '_', ' '))
+         end;
+$fn$;
+
+commit;
