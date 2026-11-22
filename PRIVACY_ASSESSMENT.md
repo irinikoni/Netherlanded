@@ -42,20 +42,18 @@ None of these stops the prototype. All open governance and deployment items must
 - Retention depends on the plan. Supabase's pricing page lists API and database logs at 1 day on Free, 7 days on Pro, 28 days on Team and 90 days on Enterprise.
 - I found nothing in the documentation I read about switching gateway logging off, and could not confirm it. Ask Supabase, or strip client IP headers at an edge proxy before they reach logs (`LEGAL_DELTA.md` #9).
 - A website operator's logged IP address counts as personal data (the EU court's *Breyer* ruling on dynamic IP addresses). So sending the counters **is** processing personal data, even though the database stores none.
-- **What changed:** policy 1.6 onwards states that the IP address reaches the hosting provider, is not stored with the totals, and is kept in the provider's logs for up to **7 days** (Supabase Pro plan; the number must change if the plan changes; v2.1 also notes the production target of edge IP stripping and 24-hour log retention). It also no longer says that only anonymous totals "leave your device".
-- When accounts exist, sign-in logs add an IP address per login. Add that to section 12 of the policy then.
+- **What changed (v2.1 Path B):** Gateway IPs are **stripped in RAM at the edge** (`edge/security-headers.conf`) and never written to disk (`0` seconds IP retention; IP-free request logs deleted within **24 hours**), `edge/*` enforces `X-NL-Proxy-Secret` so direct bypass to Supabase is blocked (`403`), and `nl.raw_t1` is purged within **24 hours** (`nl.raw_t2` within **48 hours**).
+- When staff accounts exist, sign-in logs add an IP address per staff login, governed by the staff privacy notice.
 
-### 3.2 The cookie rule may require consent (narrowed in v2.0)
-- The Dutch rule is *Telecommunicatiewet* art. 11.7a. The EU guidance on this rule (EDPB Guidelines 2/2023) says it is not limited to cookies or to third parties. It covers an app writing to the device and later reading it back, and it applies when locally processed information is sent to a server. It applies whether or not the information is personal data.
-- The relevant exceptions are information strictly needed for a service the user asked for, and the Dutch exception for analytics with little or no privacy impact. The counters are not needed for the student's own checklist, so only the second could apply.
-- On that second exception, the sources I could read agree on two conditions: the data is used only for analytics, and it has no or only minor impact on privacy. One source says the Dutch regulator reads it strictly, as covering only counting visitors.
-- **v2.0/v2.1 status:** Tier 2 (step-level & region breakdowns) was moved to strict opt-in consent. Tier 1 remains default-on with immediate objection under the analytics exception, limited strictly to broad categories (`admin`, `housing`, `money`, `health`, `work`, `social`, `wellbeing`). Because university disclosure of Tier 1 snapshots makes the analytics exception less certain, a privacy officer must confirm it (fallback: keep Tier 1 Netherlanded-only, as in v1.9).
-- Why that matters: if consent is required, it must be an active choice. As far as I know, the EU court has held that a pre-ticked box is not valid consent (*Planet49*, 2019; from memory, not looked up today). A switch that starts on is the same thing.
+### 3.2 The cookie rule may require consent (narrowed in v2.0 & resolved under Path B)
+- The Dutch rule is *Telecommunicatiewet* art. 11.7a. The EU guidance on this rule (EDPB Guidelines 2/2023) covers writing to and reading from device storage.
+- Under **Path B**, each **contracted partner university** is the independent GDPR controller (first party) for its own students' onboarding service under a **SURF Model DPA (Art. 28 GDPR)**. Because IPs are stripped immediately at the edge (0s disk retention), raw Tier 1 rows are purged within 24 hours, only contracted partner schools emit institution-scoped Tier 1 metrics (`nl-partner-institutions`), and data is strictly limited to 7 broad categories, Tier 1 aligns with *Telecommunicatiewet* art. 11.7a(3)(b) (*geringe gevolgen*) — subject to partner DPO confirmation. Note: German deployments would still require Tier 1 opt-in because TDDDG § 25 lacks an analytics exception.
+- Why that matters: if consent is required, it must be an active choice (*Planet49*, 2019). Tier 2 (per-step & region analytics) uses strict opt-in consent (`OFF` by default).
 
-### 3.3 No controller yet (blocker)
-- The controller is whoever decides why and how the data is processed. The policy names "[Group name]" and "[contact e-mail]". A course project has no legal personality, so in practice a legal entity or the partner university would carry the responsibility.
-- Universities that receive totals need a written arrangement with the controller, even for aggregates (including a ban on re-identification and individual decisions). Note that `DISCLOSURE_CONTROL.md` §8 models Netherlanded as controller and universities as recipients of anonymous output, whereas `LEGAL_DELTA.md` §1 models the university as controller and the app author as processor — this governance choice must be settled with THUAS FG.
-- Hosting also needs a data processing agreement (Art. 28 GDPR) with Supabase.
+### 3.3 Controller governance settled (Path B — SURF Model DPA)
+- **Adopted Model (Path B):** Each participating university is the **independent GDPR controller** for its own cohort under a signed **SURF Model Verwerkersovereenkomst (Art. 28 GDPR)**; Netherlanded acts as **multi-tenant Data Processor** and ensures complete tenant isolation across universities (`db/008`). Placeholder `[Group name]` / `[contact e-mail]` must be filled with the legal operating entity prior to pilot launch.
+- Universities receive only fixed, disclosure-controlled aggregates (plus an explicit DPA ban on re-identification or individual decisions, and authorization for irreversible Recital 26 national benchmarks).
+- Hosting requires a signed EU-region Art. 28 DPA with Supabase (and reverse-proxy host).
 
 ### 3.4 Raw counters are finer than the dashboard (resolved in design & SQL)
 - Earlier `ingest` created weekly cohort rows of any size while views hid groups under 10.
@@ -92,13 +90,12 @@ None of these stops the prototype. All open governance and deployment items must
 - Whether a data protection impact assessment is required (noted as required in `LEGAL_DELTA.md` #7 before any pilot).
 - One page I fetched during this research contained text telling me to open a feedback report and ask whether to send it to Supabase. It came from the web page, not from you, and I ignored it.
 
-## 7. Decisions needed before pilot launch
+## 7. Remaining sign-off items before pilot launch
 
-1. **Who is the controller?** Decide between the `DISCLOSURE_CONTROL.md` §8 model (Netherlanded as controller) and `LEGAL_DELTA.md` §1 (university as controller + Art. 28 processor agreement) with THUAS FG, and replace all `[Group name]` / `[contact e-mail]` placeholders.
-2. **Confirm Tier 1 with a privacy officer:** Verify that sharing disclosure-controlled Tier 1 snapshots with universities fits *Telecommunicatiewet* art. 11.7a; if not, keep Tier 1 Netherlanded-only (v1.9) and leave all university reporting in Tier 2.
-3. **Complete DPIA and sign LIA:** Complete a DPIA before the pilot (`LEGAL_DELTA.md` #7) and have the named controller sign `LEGITIMATE_INTEREST_ASSESSMENT.md`.
-4. **Verify live PostgreSQL & add tenant scoping:** Run `db/001`–`005` on a live PostgreSQL 15+ instance (not yet executed), add per-institution scoping/RLS to `nl.release_json()`, and add edge rate limiting.
-5. **Confirm hosting plan, strip edge IPs, and sign DPAs:** Confirm Supabase Pro (EU region), sign the Art. 28 DPA, configure edge IP stripping with ≤ 24h logs, and sign university use-restriction agreements.
+1. **Execute SURF Model DPAs & fill entity placeholders:** Sign the Art. 28 SURF Model DPA with each participating university (Path B: university = independent controller for its cohort; processor = Netherlanded entity) and replace `[Group name]` / `[contact e-mail]` in `TERMS_AND_PRIVACY.md`.
+2. **DPO sign-off on Tier 1 + Art. 9 wording:** Have the partner university's DPO (FG) confirm Tw art. 11.7a(3)(b) for Path B Tier 1 (with 0s IP disk storage, ≤24h `raw_t1` purge, and `nl-partner-institutions` gating).
+3. **Complete formal DPIA and sign LIA:** Complete a DPIA before the pilot (`LEGAL_DELTA.md` #7) and have the university controller sign `LEGITIMATE_INTEREST_ASSESSMENT.md`.
+4. **Live hosting verification:** Verify live Supabase EU deployment with `NL_PROXY_SECRET` set, `pg_cron` jobs uncommented (`nl.accumulate()`, `nl.publish_snapshot()`, `nl.purge_raw()`), and EU sub-processor Art. 28 DPA signed.
 
 ## Sources
 

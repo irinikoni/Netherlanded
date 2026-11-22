@@ -228,3 +228,26 @@ Filled gaps for the nine cities outside The Hague: GPs, intro weeks, permit coll
 - **Enschede:** Saxion's 2026 onboarding roadmap lists a buddy programme and ESN but gives no URLs; GP registration link for Saxion students not found.
 - **Enschede:** Kick-In 2026 exact dates not confirmed (UT says it is for September starters; courses must be registered before 28 August).
 - **Enschede:** www.ecen.nl seen only as text on twente.com, not fetched.
+
+## Additional campus cities researched (22 November 2026)
+
+Researched the remaining branch-campus study cities added in November 2026 (`apeldoorn`, `sittard-geleen`, `heerlen`) and the non-registration-day fallback for `deventer`. Updated `municipality`, `step_local`, and `service` records in `netherlanded-app.html` and `web/editor.html` (`last_verified: 2026-11-22`).
+
+### Apeldoorn (Saxion Apeldoorn campus)
+- **Registration (BRP):** Staying ≥ 4 months out of 6 requires an in-person appointment at the Stadhuis (**Marktplein 1, 7311 LG Apeldoorn**) within 5 working days of arrival; no walk-ins. Book by calling **14 055** (NL) or **+31 55 580 15 55** (abroad). Registration is free; written confirmation and BSN arrive within ~4 weeks. Bring valid passport/ID, signed rental agreement (or *toestemmingsverklaring* + copy of main occupant's ID), IND permit/application proof if non-EU, and legalised/apostilled + translated original foreign civil-status certificates (e.g. birth certificate) where required. Source: https://www.apeldoorn.nl/wonen-en-verhuizen/verhuizen/verhuizing-vanuit-het-buitenland-naar-apeldoorn-immigratie
+- **TB test:** GGD Noord- en Oost-Gelderland conducts IND TB consultations at Gelre Ziekenhuizen Apeldoorn (**Albert Schweitzerlaan 31, 7334 DZ Apeldoorn**); submit the IND referral form online via https://www.ggdnog.nl/.
+- **Housing:** Saxion points students to its central housing guide (https://www.saxion.edu/housing).
+
+### Sittard-Geleen (Zuyd Sittard campus)
+- **Registration (BRP):** Staying > 4 months requires in-person registration within 5 days of arrival at the Stadswinkel (temporary renovation address noted by Gemeente Sittard-Geleen: **Markt 116, 6161 GP Geleen**). Book by phone on **14 046** (NL) or **+31 46 477 77 77** (abroad). Registration is free. Bring passport/ID, rental contract (or written consent + copy of owner/main occupant's ID), IND approval if non-EU, proof of deregistration (if moving from Belgium, Germany, or the Caribbean Netherlands), and legalised foreign civil-status certificates where required. Source: https://www.sittard-geleen.nl/Onderwerpen/Regelen/Verhuizen/Verhuizen_vanuit_het_buitenland
+- **TB test & regional desk:** GGD Zuid-Limburg (https://www.ggdzl.nl/, phone **088 880 50 00**) coordinates IND-referred TB tests across South Limburg (via Heerlen); Expat Centre Maastricht Region (https://www.expatcentremaastrichtregion.nl/) covers Sittard-Geleen.
+- **Housing:** Zuyd does not manage dedicated dormitories in Sittard; students use regional corporations (`Woonpunt` / `ROOM.nl` / `Thuis in Limburg`), studio complexes (`Holland2Stay`), or verified private rentals.
+
+### Heerlen (Zuyd Heerlen campus)
+- **Registration (BRP):** Staying ≥ 4 of the next 6 months requires in-person registration at Stadskantoor Heerlen (**Geleenstraat 25, 6411 HP Heerlen**) within 5 days of arrival; first-time registration from abroad cannot be completed online. Mandatory phone appointment: **045-5605040** (**+31 45 560 5040** from abroad; general contact `gemeente@heerlen.nl`). Bring valid passport/ID, signed rental contract, original birth certificate (Dutch, English, German, or French, or sworn translation, legalised/apostilled where required), IND approval if non-EU, and deregistration proof where applicable. Stays under 4 months register via RNI instead. Source: https://www.heerlen.nl/verhuizen-vanuit-het-buitenland-naar-nederland
+- **TB test & regional desk:** GGD Zuid-Limburg (https://www.ggdzl.nl/, phone **088 880 50 00**) handles IND TB screenings in Heerlen; Expat Centre Maastricht Region covers Heerlen.
+- **Housing:** Zuyd does not manage dedicated dormitories in Heerlen; students search via `ROOM.nl` / `Woonpunt` / `Thuis in Limburg` and private listings (with tenant advice from `Huurteam Zuid-Limburg`).
+
+### Deventer (individual non-Saxion-day fallback)
+- **Individual BRP registration:** Outside Saxion's group BSN registration days at Deventer City Hall (**Grote Kerkhof 1**), students staying ≥ 4 months book an individual in-person appointment within 5 days by calling **14 0570**. Bring passport/ID, rental contract (or *toestemmingsverklaring* + copy of main occupant's ID), IND permit status if non-EU, and legalised/translated foreign birth/civil-status certificates. Written confirmation arrives within ~5 working days. Source: https://www.deventer.nl/verhuizen-naar-nederland
+- **TB test:** GGD IJsselland (https://www.ggdijsselland.nl/, email `tbc@ggdijsselland.nl`) conducts IND TB screenings for Deventer and Zwolle.

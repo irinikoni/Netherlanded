@@ -3,121 +3,474 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self' https:; img-src 'self'; base-uri 'none'; form-action 'none'">
-  <title>Netherlanded — University Support Insights</title>
+  <title>Netherlanded — University Dashboard</title>
   <style>
     :root {
-      --bg: #f6f7f9;
-      --card: #ffffff;
-      --text: #14171a;
-      --muted: #5a6570;
-      --border: #dfe4ea;
-      --accent: #1d5a3a;
-      --soft: #eef2f6;
+      color-scheme: light;
+      box-sizing: border-box;
+      --polder: #1d5a3a;
+      --on-polder: #ffffff;
+      --polder-text: #1d5a3a;
+      --low-sun: #f3c623;
+      --dike: #10261b;
+      --dike-2: #3f4a44;
+      --sky: #eef4f1;
+      --field: #ffffff;
+      --ditch: #c9d6cf;
+      --track: #e3ebe6;
+      --water: #2f6f8f;
+      --must: #c5221f;
+      --on-must: #ffffff;
+      --fee: #ff8a3d;
+      --on-fee: #10261b;
+      --mist: #dcebe2;
+      --bar: #1d5a3a;
+      --bar-2: #4c8064;
+      --serif: Georgia, "Times New Roman", serif;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --shadow: 0 1px 2px rgba(16, 38, 27, 0.06), 0 6px 18px -10px rgba(16, 38, 27, 0.18);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --polder-text: #5cc58d;
+        --dike: #eaf2ec;
+        --dike-2: #b9c6be;
+        --sky: #0b120e;
+        --field: #18201b;
+        --ditch: #2c3a32;
+        --track: #232e28;
+        --water: #7cc0e0;
+        --must: #ff6b5e;
+        --on-must: #10261b;
+        --fee: #ff9d5c;
+        --mist: #1f2b24;
+        --bar: #5cc58d;
+        --bar-2: #2f6b4c;
+        --shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        color-scheme: dark;
+      }
+    }
+    :root[data-theme="dark"] {
+      --polder-text: #5cc58d;
+      --dike: #eaf2ec;
+      --dike-2: #b9c6be;
+      --sky: #0b120e;
+      --field: #18201b;
+      --ditch: #2c3a32;
+      --track: #232e28;
+      --water: #7cc0e0;
+      --must: #ff6b5e;
+      --on-must: #10261b;
+      --fee: #ff9d5c;
+      --mist: #1f2b24;
+      --bar: #5cc58d;
+      --bar-2: #2f6b4c;
+      --shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      color-scheme: dark;
     }
     * { box-sizing: border-box; }
+    html { scroll-padding-top: env(safe-area-inset-top, 0px); }
     body {
       margin: 0;
-      font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: var(--bg);
-      color: var(--text);
+      padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px);
+      background: var(--sky);
+      color: var(--dike);
+      font: 16px/1.45 var(--sans);
+      font-variant-numeric: tabular-nums;
     }
-    main {
-      max-width: 960px;
-      margin: 0 auto;
-      padding: 32px 20px 56px;
+    [hidden]:not([hidden=until-found i]) { display: none !important; }
+    .gut {
+      padding-left: max(16px, env(safe-area-inset-left, 0px));
+      padding-right: max(16px, env(safe-area-inset-right, 0px));
     }
-    header { margin-bottom: 20px; }
-    header h1 { margin: 0 0 6px; font-size: 24px; font-weight: 700; }
-    header p { margin: 0; color: var(--muted); }
+    .in { max-width: 1080px; margin: 0 auto; }
+    header.band { background: var(--polder); color: var(--on-polder); }
+    header .in {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px 20px;
+      padding-block: 16px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-right: auto;
+      min-width: 0;
+    }
+    .brand svg { width: 30px; height: 30px; flex: none; }
+    .brand b { font: 600 22px/1 var(--serif); letter-spacing: -0.01em; }
+    .brand span { font-size: 14px; opacity: 0.85; }
+    .hdr-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+    .nav-pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 38px;
+      padding: 0 13px;
+      border-radius: 10px;
+      font: 600 14px/1 var(--sans);
+      text-decoration: none;
+      color: var(--on-polder);
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .nav-pill:hover { background: rgba(255, 255, 255, 0.16); }
+    .who { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+    select, input[type="password"] {
+      font: 600 1rem var(--sans);
+      color: var(--dike);
+      background: var(--field);
+      border: 1px solid var(--ditch);
+      border-radius: 10px;
+      min-height: 44px;
+      padding: 0 12px;
+      max-width: 100%;
+    }
+    header select { border-color: transparent; }
+    :focus-visible { outline: 3px solid var(--polder-text); outline-offset: 2px; }
+    header :focus-visible { outline-color: var(--low-sun); }
+    .note {
+      background: var(--mist);
+      border-bottom: 1px solid var(--ditch);
+      font-size: 14px;
+      color: var(--dike);
+    }
+    .note .in { padding-block: 10px; }
+    .auth-strip {
+      background: var(--field);
+      border-bottom: 1px solid var(--ditch);
+    }
     .nl-auth {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
       align-items: center;
-      margin: 0 0 20px;
-      padding: 12px 14px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 10px;
+      gap: 8px 10px;
+      padding-block: 10px;
     }
-    .nl-auth label { font-size: 13px; color: var(--muted); }
+    .nl-auth label { font-size: 13px; font-weight: 600; color: var(--dike-2); }
     .nl-auth input {
-      flex: 1 1 240px;
+      flex: 1 1 220px;
       min-width: 180px;
-      padding: 7px 10px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      font: inherit;
+      min-height: 40px;
+      font: 400 1rem var(--sans);
     }
-    .nl-auth button {
-      padding: 7px 12px;
-      border: 1px solid var(--accent);
-      background: var(--accent);
-      color: #fff;
-      border-radius: 6px;
-      font: 600 13px/1.2 inherit;
+    .nl-auth .btn { min-height: 40px; font-size: 14px; }
+    main .in {
+      display: flex;
+      flex-direction: column;
+      gap: 26px;
+      padding-block: 24px 56px;
+    }
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px 20px;
+      align-items: end;
+    }
+    .filters label {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--dike-2);
+    }
+    .seg {
+      display: inline-flex;
+      background: var(--track);
+      border-radius: 10px;
+      padding: 3px;
+    }
+    .seg button {
+      font: 600 15px var(--sans);
+      color: var(--dike-2);
+      background: transparent;
+      border: 0;
+      border-radius: 8px;
+      min-height: 38px;
+      padding: 0 14px;
       cursor: pointer;
     }
-    .nl-auth button.secondary {
-      background: transparent;
-      color: var(--accent);
+    .seg button[aria-pressed="true"] {
+      background: var(--field);
+      color: var(--dike);
+      box-shadow: var(--shadow);
     }
-    .nl-stamp, .nl-status, .nl-foot { color: var(--muted); font-size: 13.5px; }
-    .nl-table {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 18px 20px;
-      margin: 18px 0;
+    .upd {
+      margin-left: auto;
+      font-size: 13px;
+      color: var(--dike-2);
+      align-self: center;
+    }
+    h2 {
+      font: 600 24px/1.2 var(--serif);
+      letter-spacing: -0.01em;
+      margin: 0 0 4px;
+      text-wrap: balance;
+    }
+    .sub {
+      margin: 0 0 14px;
+      font-size: 14px;
+      color: var(--dike-2);
+      max-width: 68ch;
+    }
+    #nl-stats { display: flex; flex-direction: column; gap: 26px; }
+    .tile .v .hid { font-size: 24px; line-height: 38px; }
+    .tiles {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 12px;
+    }
+    .tile {
+      background: var(--field);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }
+    .tile .k { font-size: 13px; font-weight: 600; color: var(--dike-2); }
+    .tile .v { font: 600 36px/1 var(--serif); letter-spacing: -0.015em; }
+    .tile .d { font-size: 13px; color: var(--dike-2); }
+    .stuck {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 12px;
+    }
+    .stuck .tile .v { font-size: 30px; }
+    .stuck .t { font-weight: 600; }
+    .card {
+      background: var(--field);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
       overflow-x: auto;
     }
-    .nl-table h2 { margin: 0 0 12px; font-size: 17px; }
+    .phase {
+      padding: 12px 16px 6px;
+      font: 600 17px var(--serif);
+      color: var(--dike);
+    }
+    .row {
+      display: grid;
+      grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.6fr) 5.5em 5.5em;
+      gap: 6px 16px;
+      align-items: center;
+      padding: 10px 16px;
+      border-top: 1px solid var(--ditch);
+    }
+    .row.head {
+      border-top: 0;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--dike-2);
+      padding-block: 8px;
+    }
+    .row .t { min-width: 0; }
+    .row .t small { display: block; font-size: 12px; color: var(--dike-2); }
+    .row .n { text-align: right; font-size: 14px; }
+    .meter { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .meter .track {
+      flex: 1;
+      height: 10px;
+      background: var(--track);
+      border-radius: 4px;
+      overflow: hidden;
+      min-width: 40px;
+    }
+    .meter .fill {
+      display: block;
+      height: 100%;
+      background: var(--bar);
+      border-radius: 0 4px 4px 0;
+    }
+    .meter .fill.soft { background: var(--bar-2); }
+    .meter b { width: 4.3em; text-align: right; font-weight: 700; font-size: 14px; }
+    .tag {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      line-height: 18px;
+      padding: 0 7px;
+      border-radius: 5px;
+      vertical-align: 1px;
+      margin-right: 6px;
+    }
+    .tag.must { background: var(--must); color: var(--on-must); }
+    .tag.fee { background: var(--fee); color: var(--on-fee); }
+    .tag.tip { border: 1px solid var(--dike-2); color: var(--dike-2); line-height: 16px; }
+    .opt { font-size: 12px; color: var(--dike-2); }
+    .hid {
+      display: inline-block;
+      padding: 1px 8px;
+      border-radius: 999px;
+      background: var(--track);
+      color: var(--dike-2);
+      font-size: 12.5px;
+    }
+    .empty {
+      background: var(--field);
+      border-radius: 14px;
+      padding: 24px 20px;
+      box-shadow: var(--shadow);
+      max-width: 68ch;
+    }
+    .empty h2 { font-size: 22px; }
+    .cols {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px;
+    }
+    details {
+      background: var(--field);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      padding: 4px 16px;
+    }
+    summary {
+      cursor: pointer;
+      font-weight: 600;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+    }
+    details ul {
+      margin: 0 0 14px;
+      padding-left: 20px;
+      color: var(--dike-2);
+      font-size: 15px;
+      max-width: 72ch;
+    }
+    .btn {
+      font: 700 15px var(--sans);
+      color: var(--polder-text);
+      background: transparent;
+      border: 1px solid var(--ditch);
+      border-radius: 10px;
+      min-height: 44px;
+      padding: 0 14px;
+      cursor: pointer;
+    }
+    .btn.fill {
+      background: var(--polder);
+      color: var(--on-polder);
+      border-color: var(--polder);
+    }
+    .bar-foot {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 16px;
+      border-top: 1px solid var(--ditch);
+      font-size: 13px;
+      color: var(--dike-2);
+    }
     .nl-grid {
       width: 100%;
       border-collapse: collapse;
       font-size: 14px;
     }
     .nl-grid th, .nl-grid td {
-      border-bottom: 1px solid var(--border);
-      padding: 9px 10px;
+      border-top: 1px solid var(--ditch);
+      padding: 10px 14px;
       text-align: left;
       vertical-align: top;
     }
     .nl-grid thead th {
-      color: var(--muted);
-      font-weight: 600;
-      background: var(--soft);
-    }
-    .nl-rate { display: block; font-weight: 600; font-variant-numeric: tabular-nums; }
-    .nl-n { display: block; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
-    .nl-hidden {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 999px;
-      background: var(--soft);
-      color: var(--muted);
+      border-top: 0;
       font-size: 12px;
+      font-weight: 700;
+      color: var(--dike-2);
+      background: var(--track);
     }
-    .nl-none { color: var(--muted); }
-    .nl-note, .nl-empty { margin: 10px 0 0; color: var(--muted); font-size: 13.5px; }
+    .nl-rate { display: block; font-weight: 700; }
+    .nl-n { display: block; font-size: 12px; color: var(--dike-2); }
+    @media (max-width: 640px) {
+      .row { grid-template-columns: minmax(0, 1fr) auto auto; }
+      .row .t { grid-column: 1 / -1; }
+      .row.head .t { display: none; }
+      .upd { margin-left: 0; }
+    }
+    @media (prefers-reduced-motion: no-preference) {
+      .meter .fill { transition: width 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); }
+    }
   </style>
 </head>
 <body>
-  <main>
-    <header>
-      <h1>Netherlanded — University Support Insights</h1>
-      <p>Disclosure-controlled aggregate statistics only.</p>
-    </header>
-    <form class="nl-auth" id="nl-auth-form" autocomplete="off">
-      <label for="nl-staff-token">Staff JWT</label>
-      <input id="nl-staff-token" type="password" placeholder="Paste institution staff Bearer token" aria-label="Staff JWT token">
-      <button type="submit">Load report</button>
-      <button type="button" class="secondary" id="nl-staff-clear">Clear</button>
-    </form>
-    <div id="nl-stats" data-endpoint="/api/stats"></div>
+  <header class="band gut">
+    <div class="in">
+      <div class="brand">
+        <svg viewBox="0 0 96 96" aria-hidden="true">
+          <path d="M8 46 A40 40 0 0 1 88 46 Z" fill="#f3c623"/>
+          <path d="M8 50 A40 40 0 0 0 88 50 Z" fill="#fff" fill-opacity=".6"/>
+        </svg>
+        <div><b>Netherlanded</b><br><span>University dashboard</span></div>
+      </div>
+      <div class="hdr-nav">
+        <a class="nav-pill" href="./editor.html">Editor panel</a>
+        <label class="who" for="login">Signed in as
+          <select id="login">
+            <option value="thuas">THUAS International Office</option>
+            <option value="leiden">Leiden University</option>
+            <option value="thuas-zoetermeer">THUAS Zoetermeer (small campus)</option>
+          </select>
+        </label>
+      </div>
+    </div>
+  </header>
+
+  <div class="note gut">
+    <div class="in" id="nl-mode-banner"><strong>Prototype with fictional data.</strong> In the live service, each university sees only its own institution-scoped snapshot (floor &ge; 15, rounded to 5, tail-capped &le;10% / &ge;90%).</div>
+  </div>
+
+  <div class="auth-strip gut">
+    <div class="in">
+      <form class="nl-auth" id="nl-auth-form" autocomplete="off">
+        <label for="nl-staff-token">Live API JWT</label>
+        <input id="nl-staff-token" type="password" placeholder="Paste institution staff Bearer token for /api/stats" aria-label="Staff JWT token">
+        <button type="submit" class="btn fill">Load live report</button>
+        <button type="button" class="btn" id="nl-staff-clear">Clear</button>
+        <button type="button" class="btn" id="nl-demo-btn">Demo preview</button>
+      </form>
+    </div>
+  </div>
+
+  <main class="gut">
+    <div class="in">
+      <div class="filters">
+        <label for="nl-intake-filter">Intake (arrival semester / month)
+          <select id="nl-intake-filter"></select>
+        </label>
+        <label id="nl-region-filter-wrap">Students
+          <span class="seg" role="group" aria-label="Student group">
+            <button type="button" data-region="eu_eea" aria-pressed="true">EU / EEA</button>
+            <button type="button" data-region="non_eu" aria-pressed="false">Non-EU</button>
+          </span>
+        </label>
+        <button type="button" class="btn" id="nl-export-csv">Export CSV</button>
+        <span class="upd" id="upd"></span>
+      </div>
+
+      <section id="nl-bottlenecks" hidden aria-label="Where students get stuck"></section>
+      <div id="nl-stats" data-endpoint="/api/stats" aria-live="polite"></div>
+
+      <details>
+        <summary>How these figures protect students</summary>
+        <ul>
+          <li>Students control consent separately across Tier 1 (coarse service totals) and Tier 2 (optional anonymised bottleneck totals), and can switch either off at any time.</li>
+          <li>No name, device ID, IP address, or exact arrival date is ever stored. Cohorts are grouped by intake semester (<code>YYYY-sep</code> / <code>YYYY-feb</code>).</li>
+          <li>Every group under <strong>15 students</strong> is withheld, counts under 50 are rounded to 5, rates are tail-capped at <code>&le; 10.0%</code> / <code>&ge; 90.0%</code>, and complementary + sticky suppression block small-change inference across releases.</li>
+          <li>Raw event buffers fold hourly and auto-purge cleanly under the 48-hour ceiling; universities read only pre-built scheduled snapshots.</li>
+        </ul>
+      </details>
+    </div>
   </main>
-  <script type="module" src="./stats.js"></script>
+  <script defer src="./stats.js"></script>
 </body>
 </html>

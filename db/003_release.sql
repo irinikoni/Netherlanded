@@ -197,11 +197,21 @@ begin
      set reason = 'floor'
    where s.reason is null
      and s.table_id in ('t2_institution_intake', 't2_inst_step', 't2_inst_opened',
-                        't2_inst_missed', 't2_inst_region', 't2_inst_scam')
+                        't2_inst_missed', 't2_inst_scam')
      and coalesce((select b.joined
                      from nl.t2_base b
                     where b.institution = split_part(s.row_key, ':', 1)
                       and b.intake = s.col_key), 0) < 15;
+
+  update nl.stage_cell s
+     set reason = 'floor'
+   where s.reason is null
+     and s.table_id = 't2_inst_region'
+     and coalesce((select r.joined
+                     from nl.t2_region_base r
+                    where r.institution = split_part(s.row_key, ':', 1)
+                      and r.region = split_part(s.row_key, ':', 2)
+                      and r.intake = s.col_key), 0) < 15;
 
   update nl.stage_cell s
      set reason = 'floor'

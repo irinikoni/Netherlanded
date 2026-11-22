@@ -102,6 +102,7 @@ create table if not exists nl.raw_t1 (
 
 create index if not exists raw_t1_unfolded_idx on nl.raw_t1 (id) where fold_run is null;
 create index if not exists raw_t1_received_idx on nl.raw_t1 (received_at);
+create index if not exists raw_t1_fold_run_idx on nl.raw_t1 (fold_run) where fold_run is not null;
 
 create table if not exists nl.raw_t2 (
   id          bigserial primary key,
@@ -121,6 +122,7 @@ create table if not exists nl.raw_t2 (
 
 create index if not exists raw_t2_unfolded_idx on nl.raw_t2 (id) where fold_run is null;
 create index if not exists raw_t2_received_idx on nl.raw_t2 (received_at);
+create index if not exists raw_t2_fold_run_idx on nl.raw_t2 (fold_run) where fold_run is not null;
 
 create table if not exists nl.unmapped_value (
   id         bigserial primary key,
@@ -168,6 +170,15 @@ create table if not exists nl.t2_base (
   primary key (institution, intake)
 );
 
+create table if not exists nl.t2_region_base (
+  institution text not null,
+  region      text not null,
+  intake      text not null,
+  joined      bigint not null default 0 check (joined >= 0),
+  updated_at  timestamptz not null default now(),
+  primary key (institution, region, intake)
+);
+
 create table if not exists nl.stage_cell (
   table_id   text not null,
   row_key    text not null,
@@ -195,6 +206,9 @@ create table if not exists nl.published_cell (
   band        smallint,
   primary key (snapshot_id, table_id, row_key, col_key)
 );
+
+create index if not exists published_cell_history_idx
+  on nl.published_cell (table_id, row_key, col_key, snapshot_id desc);
 
 create table if not exists nl.suppressed_cell (
   snapshot_id bigint not null references nl.snapshot (snapshot_id) on delete cascade,

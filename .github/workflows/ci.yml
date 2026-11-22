@@ -1,0 +1,32 @@
+# Copyright (c) 2026 Eirini Konidari. All rights reserved.
+name: Netherlanded Verification Suite
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run statistical disclosure-control unit & static suite (62 checks)
+        run: python3 tools/test_suppression.py
+
+      - name: Run full build, CSP SHA-256, SQL, dashboard, editor & edge verifier (162 checks)
+        run: python3 tools/verify_build.py
+
+      - name: Install embedded PostgreSQL test runner dependencies
+        run: pip install pgserver "psycopg[binary]"
+
+      - name: Run live PostgreSQL 16 migrations, RLS, editor scoping & concurrency suite
+        run: python3 tools/run_pg_tests.py

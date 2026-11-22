@@ -12,6 +12,18 @@ const ALLOWED_ORIGINS = (Deno.env.get("ALLOWED_ORIGINS") ?? "")
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+const PROXY_SECRET = Deno.env.get("NL_PROXY_SECRET") ?? "";
+
+function checkProxySecret(req: Request): boolean {
+  if (!PROXY_SECRET) return true;
+  const supplied = req.headers.get("x-nl-proxy-secret") ?? "";
+  const a = new TextEncoder().encode(supplied);
+  const b = new TextEncoder().encode(PROXY_SECRET);
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i += 1) diff |= a[i] ^ b[i];
+  return diff === 0;
+}
 
 function isOriginAllowed(origin: string | null): boolean {
   return Boolean(origin && ALLOWED_ORIGINS.length > 0 && ALLOWED_ORIGINS.includes(origin));
@@ -100,6 +112,9 @@ Deno.serve(async (req: Request) => {
 
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: securityHeaders(origin, false) });
+  }
+  if (!checkProxySecret(req)) {
+    return new Response(JSON.stringify({ error: "direct_access_forbidden" }), { status: 403, headers });
   }
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "method_not_allowed" }), { status: 405, headers });

@@ -81,22 +81,24 @@ A group of 15 is not automatically anonymous if the university already knows who
 
 **Use restriction**, written into the university agreement: no decisions or interventions concerning individual students; no attempt to re-identify students; no combining with its own records to single out students.
 
-## 8. Controller model
+## 8. Controller model (Path B — Multi-Tenant Controller / Art. 28 Processor)
 
-**Preferred, for the pilot:** Netherlanded is the controller for collection and aggregation; Supabase and the e-mail provider are processors; the university receives only anonymous output and cannot influence which fields are collected. THUAS may review the pilot specification for usefulness and safety, but Tier 1 metrics stay fixed in that specification.
+**Adopted architecture (Path B, SURF Model DPA):**
+- **Each contracted participating university is the independent GDPR controller** for its own incoming students' onboarding analytics under a signed **SURF Model Data Processing Agreement (*Verwerkersovereenkomst*, Art. 28 GDPR)**. Netherlanded operates strictly as the multi-tenant **Data Processor** (`edge/*` + EU Supabase PostgreSQL) on behalf of each contracting institution.
+- **No cross-university joint controllership:** Each university receives only its own institution's disclosure-controlled snapshots (`db/008_scoped_insights.sql`); universities never see other institutions' data or raw counters, and per-institution complementary suppression is strictly isolated.
+- **Non-partner exclusion:** Students whose selected institution is not flagged as a contracted partner (`nl-partner-institutions`) do not emit institution-scoped Tier 1 metrics.
+- **National benchmark clause:** Each SURF Model DPA authorizes Netherlanded to compile irreversible, disclosure-controlled national benchmarks (GDPR Recital 26: floor >= 15, rounded to 5, zero personal data).
+- **Use restriction:** Written into every university agreement — zero decisions or interventions concerning individual students, zero attempts to re-identify students, and zero combining with internal university records to single out individuals.
 
-**Higher-risk, avoid:** if the university decides which behaviours are measured, which student groups are compared, how long records are kept, or which reports are made, it may become an independent or joint controller for part of the processing, whether or not the output is called aggregate.
-
-> **Open governance decision (`LEGAL_DELTA.md` §1 vs. §8 above):** `LEGAL_DELTA.md` §1 alternatively models the university as GDPR controller and the app author as processor under an Article 28 processing agreement. Settle which controller model applies with the THUAS privacy officer (FG) before pilot launch, and update `TERMS_AND_PRIVACY.md` §11 accordingly.
+*(This resolves the governance question raised in `LEGAL_DELTA.md` §1 cleanly across 2, 10, or 50 Dutch universities.)*
 
 ## 9. Build list
 
 - [x] `nl.accumulate()`, `nl.build_stage()`, `nl.assert_release_safe()`, `nl.publish_snapshot()`, and `nl.release_json()` implemented in [`db/003_release.sql`](db/003_release.sql) (15-person floor, rounding to 5, `< 5`pp delta, 2-release sticky suppression, 2D complementary suppression, and withheld bucket reporting).
 - [x] Separate Tier 1 (`nl.ingest_t1` / `nl.raw_t1`) and Tier 2 (`nl.ingest_t2` / `nl.raw_t2`) endpoints and tables in [`db/001_schema.sql`](db/001_schema.sql) and [`db/002_ingest.sql`](db/002_ingest.sql).
-- [x] Safe read-only dashboard renderer [`web/stats.js`](web/stats.js) (zero `innerHTML`, `credentials: 'omit'`, withheld cells rendered as bucket counts, never zeros).
-- [x] Reference specification and 62-check verification suite in [`tools/test_suppression.py`](tools/test_suppression.py) (passes 62/62).
-- [x] Shared-city content editor privilege fix in [`db/005_content_editor_security_fix.sql`](db/005_content_editor_security_fix.sql).
-- [ ] Execute `db/001`–`db/005` against a live PostgreSQL 15+ instance and verify `pg_cron` jobs for hourly fold/purge and monthly release.
-- [ ] Add per-institution tenant scoping / RLS so `nl.release_json()` and staff credentials expose only their own institution's rows (currently `release_json(null)` returns all institutions and pooled category/step tables).
-- [ ] Configure edge/API rate limiting and edge IP stripping before pilot traffic.
-- [ ] A people check before every new report type: could this be combined with what the university knows?
+- [x] Per-institution tenant scoping, RLS, tail redaction, and `split_part` isolation implemented in [`db/006_security_rls_and_scoping.sql`](db/006_security_rls_and_scoping.sql) and [`db/008_scoped_insights.sql`](db/008_scoped_insights.sql).
+- [x] Edge IP/UA stripping in RAM, ≤ 24h IP-free logs, per-IP `30r/m` rate limiting, and `X-NL-Proxy-Secret` bypass protection configured in [`edge/security-headers.conf`](edge/security-headers.conf) and [`edge/*`](edge/ingest/index.ts); Tier 1 raw purge tightened to **24h** in [`db/004_retention.sql`](db/004_retention.sql).
+- [x] Safe read-only dashboard renderer [`web/stats.js`](web/stats.js) (zero `innerHTML`, `credentials: 'omit'`, capped tails `<= 10.0%` / `>= 90.0%`).
+- [x] Reference specification and live PostgreSQL 16.2 verification suite in [`tools/test_suppression.py`](tools/test_suppression.py), [`tools/verify_build.py`](tools/verify_build.py), and [`tools/run_pg_tests.py`](tools/run_pg_tests.py).
+- [x] Shared-city content editor privilege fix and audited CMS RPCs in [`db/005_content_editor_security_fix.sql`](db/005_content_editor_security_fix.sql) and [`db/009_content_editor.sql`](db/009_content_editor.sql).
+- [ ] Verify hosted Supabase deployment (`pg_cron` jobs uncommented, `NL_PROXY_SECRET` set) and run a human people-check before adding any new report dimension.

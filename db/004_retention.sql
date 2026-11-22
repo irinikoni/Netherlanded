@@ -13,26 +13,30 @@ create table if not exists nl.retention_policy (
 );
 
 insert into nl.retention_policy (store, keep_hours, keep_days, note) values
-  ('raw_t1', 48, null,
-   'Folded hourly. Deleted an hour after the fold that captured it, and never kept past 48 hours.'),
+  ('raw_t1', 24, null,
+   'Folded hourly. Deleted an hour after the fold that captured it, and never kept past 24 hours.'),
   ('raw_t2', 48, null,
    'Folded hourly. Deleted an hour after the fold that captured it, and never kept past 48 hours.'),
   ('stage_cell', null, 90, 'Rebuilt in full on every release; kept a quarter for debugging.'),
   ('snapshot', null, 1095, 'Published aggregate snapshots, three years.'),
   ('accumulated_cell', null, null, 'Aggregates only. Retained indefinitely.'),
   ('unmapped_value', null, 400, 'Dictionary of step keys not yet recognised; 400 days.')
-on conflict (store) do nothing;
+on conflict (store) do update
+   set keep_hours = excluded.keep_hours,
+       note = excluded.note;
 
 create or replace function nl.guard_raw_delete()
 returns trigger
 language plpgsql
 as $fn$
+declare
+  v_ceiling interval := case when tg_table_name = 'raw_t1' then interval '24 hours' else interval '48 hours' end;
 begin
   if coalesce(current_setting('nl.allow_maintenance', true), 'off') = 'on' then
     return old;
   end if;
-  if old.fold_run is null and old.received_at > now() - interval '48 hours' then
-    raise exception 'refusing to delete unfolded row % before the 48 hour ceiling', old.id
+  if old.fold_run is null and old.received_at > now() - v_ceiling then
+    raise exception 'refusing to delete unfolded row % before the retention ceiling', old.id
       using errcode = '42501';
   end if;
   return old;
@@ -64,7 +68,7 @@ begin
   perform set_config('nl.allow_maintenance', 'on', true);
 
   delete from nl.raw_t1 r
-   where r.received_at < now() - interval '48 hours'
+   where r.received_at < now() - interval '24 hours'
       or (r.fold_run is not null and exists (
             select 1 from nl.accumulation_run ar
              where ar.run_id = r.fold_run
@@ -137,20 +141,24 @@ language sql
 stable
 as $fn$
   with oldest as (
-    select least(
-      (select min(received_at) from nl.raw_t1),
-      (select min(received_at) from nl.raw_t2)
-    ) as oldest_ts
+    select
+      (select min(received_at) from nl.raw_t1) as t1_oldest,
+      (select min(received_at) from nl.raw_t2) as t2_oldest
   ),
   age as (
-    select round(extract(epoch from (now() - oldest_ts)) / 3600.0, 1) as oldest_hours
+    select
+      round(extract(epoch from (now() - t1_oldest)) / 3600.0, 1) as t1_hours,
+      round(extract(epoch from (now() - t2_oldest)) / 3600.0, 1) as t2_hours,
+      round(extract(epoch from (now() - least(t1_oldest, t2_oldest))) / 3600.0, 1) as oldest_hours
       from oldest
   )
   select jsonb_build_object(
-    'ok', (select coalesce(oldest_hours, 0) < 48.0 from age),
+    'ok', (select coalesce(t1_hours, 0) < 24.0 and coalesce(t2_hours, 0) < 48.0 from age),
     'checked_at', now(),
     'raw_t1_unfolded', (select count(*) from nl.raw_t1 where fold_run is null),
     'raw_t2_unfolded', (select count(*) from nl.raw_t2 where fold_run is null),
+    'raw_t1_oldest_hours', (select t1_hours from age),
+    'raw_t2_oldest_hours', (select t2_hours from age),
     'raw_oldest_hours', (select oldest_hours from age),
     'accumulated_cells', (select count(*) from nl.accumulated_cell),
     'snapshots', (select count(*) from nl.snapshot),

@@ -540,7 +540,7 @@ These are structural, not to-do items. Each needs a decision before or while acc
 | 6 | A CAK letter must be answered within 3 months; Dutch insurance is required from the first working day | Deadlines counted from the student's own events, with the consequence | `deadline_rule`, `user_event`, `v_user_deadlines` |
 | 7 | The BSN must reach the bank within 90 to 120 days | Reminder counted from the day the account was opened | `deadline_rule` on `open_bank` |
 | 8 | In The Hague more than 75% of GP practices take no new patients | GP step with a deadline, and practices that accept students | `register_gp`, `service` (24 GP entries) |
-| 9 | 70% did not know about student finance at 56 hours a month | Money and insurance steps, with the threshold stored as a figure | `plan_finances`, `student_finance`, `fact` |
+| 9 | 70% did not know about student finance (now at least 32 hours a month, lowered from 56 hours) | Money and insurance steps, with the threshold stored as a figure | `plan_finances`, `student_finance`, `fact` |
 | 10 | Non-EU students collect their permit in person; the IND is busiest May to July | Permit steps and a deadline 90 days before arrival | `residence_permit`, `collect_permit` |
 | 11 | 60% find it hard to connect with Dutch students; 62% often stressed | Optional social steps and a monthly check-in. Buddy matching was planned and removed | `intro_week`, `join_community`, `wellbeing_checkin` |
 | 12 | Popular websites show outdated figures | Content not checked for 180 days is flagged | `last_verified`, `v_stale_content` |

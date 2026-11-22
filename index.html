@@ -1,0 +1,158 @@
+<!doctype html>
+<!-- Copyright (c) 2026 Eirini Konidari. All rights reserved. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Netherlanded – Interactive Demo Portal</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; base-uri 'none'; form-action 'none'">
+  <link rel="icon" type="image/svg+xml" href="./web/icon.svg">
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f8f7;
+      --card: #ffffff;
+      --ink: #18231d;
+      --muted: #4b5a52;
+      --accent: #1d5a3a;
+      --accent-hover: #16462d;
+      --border: #dce4df;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 28px 18px 44px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.5;
+    }
+    main {
+      max-width: 760px;
+      margin: 0 auto;
+    }
+    header {
+      margin-bottom: 24px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      background: #e3efe8;
+      color: var(--accent);
+      margin-bottom: 10px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(1.6rem, 3vw, 2.1rem);
+      line-height: 1.2;
+    }
+    p.lead {
+      margin: 0;
+      color: var(--muted);
+      font-size: 1rem;
+    }
+    .grid {
+      display: grid;
+      gap: 14px;
+      margin-top: 22px;
+    }
+    a.card {
+      display: block;
+      text-decoration: none;
+      color: inherit;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px 20px;
+      transition: border-color .15s ease, transform .15s ease;
+    }
+    a.card:hover, a.card:focus-visible {
+      border-color: var(--accent);
+      transform: translateY(-1px);
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    .card-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-weight: 700;
+      font-size: 1.08rem;
+      color: var(--accent);
+      margin-bottom: 6px;
+    }
+    .card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.94rem;
+    }
+    .note {
+      margin-top: 22px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      background: #eef3f0;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+    footer {
+      margin-top: 24px;
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <span class="badge">Prototype v2.1 · Offline-First &amp; Privacy-by-Design</span>
+      <h1>Netherlanded</h1>
+      <p class="lead">
+        Personalised arrival checklist, deadline reminders, and scam protection for international students in the Netherlands — paired with a 15-student-floor university insights dashboard and staff content editor.
+      </p>
+    </header>
+
+    <section class="grid" aria-label="Netherlanded applications">
+      <a class="card" href="./netherlanded-app.html">
+        <div class="card-title">
+          <span>1. Student Arrival App (PWA)</span>
+          <span aria-hidden="true">Open →</span>
+        </div>
+        <p>
+          Full student onboarding flow: EU/non-EU &amp; commuter-municipality setup across 18 study cities (34 municipalities), dependency chain, `.ics` / Google Calendar deadlines, Room Scam Check, and separate Tier 1 / Tier 2 privacy controls.
+        </p>
+      </a>
+
+      <a class="card" href="./web/dashboard.html">
+        <div class="card-title">
+          <span>2. University Insights Dashboard (Demo Mode)</span>
+          <span aria-hidden="true">Open →</span>
+        </div>
+        <p>
+          Simulated cohort bottleneck view illustrating the 15-student floor, rounding to 5, tail capping (&lt;= 10.0% / &gt;= 90.0%), and suppressed small-campus handling (THUAS, Leiden, Zoetermeer).
+        </p>
+      </a>
+
+      <a class="card" href="./web/editor.html">
+        <div class="card-title">
+          <span>3. Staff Content Editor Panel (Demo Mode)</span>
+          <span aria-hidden="true">Open →</span>
+        </div>
+        <p>
+          6-tab editorial workflow showing shared-city locks (`can_edit_city`), institution-specific arrival notes, local GP patient-stop toggles, and `last_verified` fact history.
+        </p>
+      </a>
+    </section>
+
+    <div class="note">
+      <strong>Static Preview Mode:</strong> This GitHub Pages site serves the offline-capable client prototypes and Demo Mode previews with no server tracking or cookies. Live university telemetry requires connecting the PostgreSQL 15/16 + Edge backend (`db/` &amp; `edge/`).
+    </div>
+
+    <footer>
+      Copyright &copy; 2026 Eirini Konidari. All rights reserved.
+    </footer>
+  </main>
+</body>
+</html>

@@ -25,6 +25,7 @@ alter table nl.accumulation_run enable row level security;
 alter table nl.accumulated_cell enable row level security;
 alter table nl.t1_cohort        enable row level security;
 alter table nl.t2_base          enable row level security;
+alter table nl.t2_region_base   enable row level security;
 alter table nl.stage_cell       enable row level security;
 alter table nl.published_cell   enable row level security;
 alter table nl.suppressed_cell  enable row level security;
@@ -53,22 +54,18 @@ set search_path = nl, pg_temp
 as $fn$
 declare
   v_hour    timestamptz := date_trunc('hour', now());
-  v_headers jsonb := coalesce(nullif(current_setting('request.headers', true), ''), '{}')::jsonb;
-  v_ip      text := coalesce(
-    nullif(trim(v_headers ->> 'cf-connecting-ip'), ''),
-    nullif(trim(split_part(coalesce(v_headers ->> 'x-forwarded-for', ''), ',', 1)), ''),
-    '0.0.0.0'
-  );
   v_secret  text := coalesce(
     nullif(current_setting('nl.rate_limit_secret', true), ''),
     current_database() || ':' || pg_postmaster_start_time()::text
   );
+  -- Nginx enforces per-IP limits in memory and strips IP headers before PostgREST;
+  -- this database limit acts solely as a global per-tier safety circuit breaker.
   v_hash    text := encode(
-    pg_catalog.sha256(convert_to(v_ip || '::' || v_secret || '::' || v_hour::text, 'UTF8')),
+    pg_catalog.sha256(convert_to('global::' || v_secret || '::' || v_hour::text, 'UTF8')),
     'hex'
   );
   v_cnt     integer;
-  v_cap     integer := case when v_ip = '0.0.0.0' then greatest(p_max_per_hour, 12000) else p_max_per_hour end;
+  v_cap     integer := greatest(p_max_per_hour, 60000);
 begin
   delete from nl.ingest_rate_limits
    where bucket_hour < (v_hour - interval '2 hours');
@@ -83,7 +80,7 @@ begin
 end;
 $fn$;
 
--- Rate-limited public ingest RPC entrypoints (campus-NAT / eduroam friendly)
+-- Global circuit-breaker ingest RPC entrypoints (Nginx handles per-IP limits)
 create or replace function nl.ingest_t1_rpc(p jsonb)
 returns integer
 language plpgsql
@@ -92,7 +89,7 @@ security definer
 set search_path = nl, pg_temp
 as $fn$
 begin
-  if not nl.check_ingest_rate_limit(1::smallint, 1800) then
+  if not nl.check_ingest_rate_limit(1::smallint, 60000) then
     raise exception 'rate_limit_exceeded' using errcode = 'P0001';
   end if;
   return nl.ingest_t1(p);
@@ -107,7 +104,7 @@ security definer
 set search_path = nl, pg_temp
 as $fn$
 begin
-  if not nl.check_ingest_rate_limit(2::smallint, 1800) then
+  if not nl.check_ingest_rate_limit(2::smallint, 60000) then
     raise exception 'rate_limit_exceeded' using errcode = 'P0001';
   end if;
   return nl.ingest_t2(p);
@@ -189,11 +186,15 @@ begin
              'col', col_key,
              'col_label', nl.dim_label(r.col_axis, col_key),
              'num', case when v_allow_pooled then num
-                         when num < 5 or (denom - num) < 5 then null
+                         when num < 5 or (denom - num) < 5 or rate <= 0.10 or rate >= 0.90 or denom < 50 then null
                          else num end,
              'denom', denom,
-             'rate', rate,
-             'band', band,
+             'rate', case when v_allow_pooled then rate
+                          when num < 5 or (denom - num) < 5 or rate <= 0.10 or rate >= 0.90 or denom < 50 then null
+                          else rate end,
+             'band', case when v_allow_pooled then band
+                          when num < 5 or (denom - num) < 5 or rate <= 0.10 or rate >= 0.90 then null
+                          else band end,
              'rate_display', case
                when num < 5 or rate <= 0.10 then '<= 10.0%'
                when (denom - num) < 5 or rate >= 0.90 then '>= 90.0%'

@@ -4,6 +4,7 @@
 against an embedded PostgreSQL server (`pgserver` + `psycopg[binary]`).
 """
 
+from concurrent.futures import ThreadPoolExecutor
 import json
 import os
 import re
@@ -192,11 +193,16 @@ def main():
                       't1_category_totals' not in table_ids and 't2_step_totals' not in table_ids and 't1_inst_category' in table_ids,
                       str(sorted(table_ids)))
 
-                # Check tail-capped num redaction and suppressed reason redaction for non-super_admin
+                # Check tail-capped num/rate/band redaction, <50 rate redaction, and suppressed reason redaction for non-super_admin
                 cat_tbl = [t for t in doc['tables'] if t['table_id'] == 't1_inst_category'][0]
                 money_cell = [c for c in cat_tbl['cells'] if c['row'] == 'thuas:money'][0]
-                check('authenticated reader gets null num and <= 10.0% on tail-capped cell',
-                      money_cell['num'] is None and money_cell['rate_display'] == '<= 10.0%', str(money_cell))
+                housing_cell = [c for c in cat_tbl['cells'] if c['row'] == 'thuas:housing'][0]
+                check('authenticated reader gets null num/rate/band and <= 10.0% on tail-capped cell',
+                      money_cell['num'] is None and money_cell['rate'] is None and money_cell['band'] is None and money_cell['rate_display'] == '<= 10.0%',
+                      str(money_cell))
+                check('authenticated reader gets null num and rate (only band) when denom < 50',
+                      housing_cell['num'] is None and housing_cell['rate'] is None and housing_cell['band'] is not None,
+                      str(housing_cell))
 
                 leaked_uva = []
                 for t in doc['tables']:
@@ -291,6 +297,19 @@ def main():
                 health_pub = conn.execute("select count(*) from nl.published_cell where snapshot_id=%s and table_id='t1_inst_category' and row_key='thuas:health'", (s_floor,)).fetchone()[0]
                 check('regression: 3 students with 15 health steps blocked by 15-student contributor floor', health_pub == 0, f'health_pub={health_pub}')
 
+                # R3b: 14 eu_eea + 1 non_eu (total joined=15) blocks single non_eu student in t2_inst_region
+                reset_data(conn)
+                t2_reg = (
+                    [{'institution': 'thuas', 'region': 'eu_eea', 'intake': '2026-sep', 'event': 'joined'} for _ in range(14)]
+                    + [{'institution': 'thuas', 'region': 'non_eu', 'intake': '2026-sep', 'event': 'joined'}]
+                    + [{'institution': 'thuas', 'region': 'non_eu', 'intake': '2026-sep', 'event': 'step_applies', 'step': 'find_housing'} for _ in range(15)]
+                )
+                conn.execute('select nl.ingest_t2_rpc(%s::jsonb)', (json.dumps(t2_reg),))
+                conn.execute('select nl.accumulate()')
+                s_reg = conn.execute("select nl.publish_snapshot('1-non-eu-region-floor')").fetchone()[0]
+                non_eu_pub = conn.execute("select count(*) from nl.published_cell where snapshot_id=%s and table_id='t2_inst_region' and row_key='thuas:non_eu'", (s_reg,)).fetchone()[0]
+                check('regression: 1 non_eu student blocked by per-region t2_region_base >= 15 floor', non_eu_pub == 0, f'non_eu_pub={non_eu_pub}')
+
                 # R4: Scoped complementary suppression isolates thuas vs uva in inst_* tables
                 reset_data(conn)
                 b = (
@@ -352,11 +371,370 @@ def main():
                 phantom = conn.execute("select count(*) from nl.accumulated_cell where table_id in ('t1_institution_intake', 't1_category_totals', 't1_inst_category')").fetchone()[0]
                 check('regression: technical_error creates zero phantom 0/0 cells', phantom == 0, f'phantom={phantom}')
 
+                conn.execute("insert into nl.raw_t1 (institution, intake, event, category, app_version, received_at) values ('thuas', '2026-sep', 'cohort_joined', null, '3b32b5914fb6bdfc', now() - interval '26 hours')")
+                h1 = conn.execute('select nl.health()').fetchone()[0]
+                check('regression: nl.health() detects >24h raw_t1 breach (ok=false)',
+                      h1['ok'] is False and float(h1['raw_t1_oldest_hours']) >= 24.0, str(h1))
+
                 conn.execute("insert into nl.raw_t2 (institution, region, intake, event, received_at) values ('thuas', 'eu_eea', '2026-sep', 'joined', now() - interval '50 hours')")
                 h = conn.execute('select nl.health()').fetchone()[0]
                 check('regression: nl.health() detects >48h raw_t2 breach (ok=false)', h['ok'] is False and float(h['raw_oldest_hours']) >= 48.0, str(h))
             except Exception as exc:
                 check('adversarial SQL regression suite', False, str(exc))
+
+            # 5. Live Content Editor schema, RLS, privilege scoping, versioning & immutability tests
+            try:
+                conn.execute("""
+                    create schema if not exists auth;
+                    create or replace function auth.jwt() returns jsonb
+                    language sql stable as $$
+                      select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb;
+                    $$;
+                """)
+                conn.execute(read_sql('009_content_editor.sql'))
+                check('execute 009_content_editor.sql', True)
+
+                conn.execute('begin;')
+                # Anon & empty authenticated blocked (42501)
+                conn.execute('set local role anon')
+                conn.execute('savepoint sp_ed_anon')
+                anon_blk = False
+                try:
+                    conn.execute("select nl_content.editor_list()")
+                except psycopg.errors.InsufficientPrivilege:
+                    anon_blk = True
+                conn.execute('rollback to savepoint sp_ed_anon')
+                check('009 role anon blocked from nl_content.editor_list', anon_blk)
+
+                conn.execute('set local role authenticated')
+                conn.execute("select set_config('request.jwt.claims', '{}', true)")
+                conn.execute('savepoint sp_ed_empty')
+                empty_blk = False
+                try:
+                    conn.execute("select nl_content.editor_list()")
+                except psycopg.errors.InsufficientPrivilege:
+                    empty_blk = True
+                conn.execute('rollback to savepoint sp_ed_empty')
+                check('009 authenticated without role claim blocked (42501)', empty_blk)
+
+                # THUAS editor scope tests
+                conn.execute("select set_config('request.jwt.claims', %s, true)",
+                             (json.dumps({'sub': 'thuas-1', 'app_metadata': {'role': 'editor', 'institution_id': 'thuas'}}),))
+                ed_doc = conn.execute("select nl_content.editor_list()").fetchone()[0]
+                check('009 thuas editor_list returns services, facts, campus_cities & editable_cities=[zoetermeer]',
+                      ed_doc['meta']['editable_cities'] == ['zoetermeer']
+                      and ed_doc['meta']['campus_cities'] == ['delft', 'leidschendam-voorburg', 'rijswijk', 'the-hague', 'zoetermeer']
+                      and len(ed_doc['services']) >= 5,
+                      str(ed_doc['meta']))
+                check('009 thuas editor blocked on Heerlen/Sittard-Geleen while zuyd owns them',
+                      conn.execute("select public.can_edit_city('heerlen')").fetchone()[0] is False
+                      and conn.execute("select public.can_edit_city('sittard-geleen')").fetchone()[0] is False)
+
+                # Allowed: own-institution service + single-school city service + step_local override
+                own_res = conn.execute(
+                    "select nl_content.editor_upsert_service(%s::jsonb, %s)",
+                    (json.dumps({
+                        'service_id': 'thuas_io', 'name': 'THUAS International Office Updated',
+                        'service_type': 'support', 'city_id': 'the-hague', 'municipality_id': 'the-hague',
+                        'for_institution_id': 'thuas', 'description': 'Updated arrival schedule desk.',
+                        'url': 'https://www.thuas.com/study-choice/international-office'
+                    }), 'Updated THUAS office copy')
+                ).fetchone()[0]
+                zoo_res = conn.execute(
+                    "select nl_content.editor_upsert_service(%s::jsonb, %s)",
+                    (json.dumps({
+                        'service_id': 'zoetermeer_desk', 'name': 'Gemeente Zoetermeer BRP Desk',
+                        'service_type': 'municipal', 'city_id': 'zoetermeer', 'municipality_id': 'zoetermeer',
+                        'for_institution_id': None, 'description': 'Verified single-school municipal desk.',
+                        'url': 'https://www.zoetermeer.nl/'
+                    }), 'Verified Zoetermeer desk')
+                ).fetchone()[0]
+                sl_res = conn.execute(
+                    "select nl_content.editor_upsert_step_local(%s::jsonb, %s)",
+                    (json.dumps({
+                        'step_id': 'register_municipality', 'municipality_id': 'the-hague',
+                        'for_institution_id': 'thuas',
+                        'body': 'THUAS students book through The Hague International Centre student intake days.',
+                        'links': [{'label': 'THUAS Arrival', 'url': 'https://www.thuas.com/study-choice/international-office/arrival-services'}]
+                    }), 'Added THUAS override for Den Haag BRP')
+                ).fetchone()[0]
+                check('009 thuas editor can edit own service, single-school city & override step_local',
+                      own_res['name'].endswith('Updated') and zoo_res['service_id'] == 'zoetermeer_desk' and sl_res['for_institution_id'] == 'thuas')
+
+                # Blocked for thuas editor: shared municipal service, hijack via for_institution_id, foreign school, shared step_local, fact publish
+                def assert_blocked(label, sql, params, exc_cls=psycopg.errors.InsufficientPrivilege):
+                    conn.execute('savepoint sp_ed_blk')
+                    hit = False
+                    try:
+                        conn.execute(sql, params)
+                    except exc_cls:
+                        hit = True
+                    conn.execute('rollback to savepoint sp_ed_blk')
+                    check(label, hit)
+
+                assert_blocked(
+                    '009 thuas editor blocked on shared-city municipal service (the-hague)',
+                    "select nl_content.editor_upsert_service(%s::jsonb, %s)",
+                    (json.dumps({
+                        'service_id': 'the_student_doctors', 'name': 'Tamper', 'service_type': 'gp',
+                        'city_id': 'the-hague', 'municipality_id': 'the-hague', 'for_institution_id': None,
+                        'description': 'Tamper', 'url': 'https://www.thestudentdoctors.nl/'
+                    }), 'Attempt shared municipal edit')
+                )
+                assert_blocked(
+                    '009 thuas editor blocked from hijacking municipal service via for_institution_id',
+                    "select nl_content.editor_upsert_service(%s::jsonb, %s)",
+                    (json.dumps({
+                        'service_id': 'the_student_doctors', 'name': 'Hijack', 'service_type': 'gp',
+                        'city_id': 'the-hague', 'municipality_id': 'the-hague', 'for_institution_id': 'thuas',
+                        'description': 'Hijack', 'url': 'https://www.thestudentdoctors.nl/'
+                    }), 'Attempt hijack')
+                )
+                assert_blocked(
+                    '009 thuas editor blocked on foreign institution service (leiden-th)',
+                    "select nl_content.editor_upsert_service(%s::jsonb, %s)",
+                    (json.dumps({
+                        'service_id': 'leiden_th_desk', 'name': 'Leiden Desk', 'service_type': 'support',
+                        'city_id': 'the-hague', 'municipality_id': 'the-hague', 'for_institution_id': 'leiden-th',
+                        'description': 'Foreign edit', 'url': 'https://www.universiteitleiden.nl/den-haag'
+                    }), 'Attempt foreign school create')
+                )
+                assert_blocked(
+                    '009 thuas editor blocked on shared-city step_local without override',
+                    "select nl_content.editor_upsert_step_local(%s::jsonb, %s)",
+                    (json.dumps({
+                        'step_id': 'register_municipality', 'municipality_id': 'the-hague',
+                        'for_institution_id': '', 'body': 'Unauthorized municipal rewrite', 'links': []
+                    }), 'Attempt shared step rewrite')
+                )
+                assert_blocked(
+                    '009 thuas editor blocked from publishing national fact (42501)',
+                    "select nl_content.editor_publish_fact(%s::jsonb, %s)",
+                    (json.dumps({
+                        'fact_key': 'cak_fine_eur', 'label': 'CAK fine', 'value': '999.00',
+                        'unit': 'EUR', 'source_id': 'cak-fine-en'
+                    }), 'Attempt national fact change')
+                )
+                assert_blocked(
+                    '009 javascript: URL rejected on service upsert (22023)',
+                    "select nl_content.editor_upsert_service(%s::jsonb, %s)",
+                    (json.dumps({
+                        'service_id': 'thuas_io', 'name': 'XSS', 'service_type': 'support',
+                        'city_id': 'the-hague', 'municipality_id': 'the-hague', 'for_institution_id': 'thuas',
+                        'description': 'XSS test', 'url': 'javascript:alert(1)'
+                    }), 'Attempt XSS URL'),
+                    psycopg.errors.InvalidParameterValue
+                )
+                assert_blocked(
+                    '009 whitespace URL rejected on service upsert (22023)',
+                    "select nl_content.editor_upsert_service(%s::jsonb, %s)",
+                    (json.dumps({
+                        'service_id': 'thuas_io', 'name': 'Bad URL', 'service_type': 'support',
+                        'city_id': 'the-hague', 'municipality_id': 'the-hague', 'for_institution_id': 'thuas',
+                        'description': 'Space URL test', 'url': 'https://www.thuas.com/bad url'
+                    }), 'Attempt whitespace URL'),
+                    psycopg.errors.InvalidParameterValue
+                )
+                comm_res = conn.execute(
+                    "select nl_content.editor_upsert_service(%s::jsonb, %s)",
+                    (json.dumps({
+                        'service_id': 'thuas_comm', 'name': 'THUAS Buddy Community', 'service_type': 'community',
+                        'city_id': 'the-hague', 'municipality_id': 'the-hague', 'for_institution_id': 'thuas',
+                        'description': 'Peer community network for incoming students.',
+                        'url': 'https://www.thuas.com/community', 'accepting_students': 'yes'
+                    }), 'Add THUAS community service')
+                ).fetchone()[0]
+                gov_res = conn.execute(
+                    "select nl_content.editor_upsert_service(%s::jsonb, %s)",
+                    (json.dumps({
+                        'service_id': 'zoetermeer_gov', 'name': 'Zoetermeer Civic Desk', 'service_type': 'government',
+                        'city_id': 'zoetermeer', 'municipality_id': 'zoetermeer', 'for_institution_id': None,
+                        'description': 'Government desk for Zoetermeer arrivals.',
+                        'url': 'https://www.zoetermeer.nl/civic', 'accepting_students': 'yes'
+                    }), 'Add Zoetermeer government service')
+                ).fetchone()[0]
+                check('009 service_type allows community and government with accepting_students',
+                      comm_res['service_type'] == 'community' and gov_res['service_type'] == 'government' and comm_res['accepting_students'] == 'yes')
+
+                # Campus ownership checks for zuyd (heerlen/sittard-geleen single-school) & tud (delft shared)
+                conn.execute("select set_config('request.jwt.claims', %s, true)",
+                             (json.dumps({'sub': 'zuyd-1', 'app_metadata': {'role': 'editor', 'institution_id': 'zuyd'}}),))
+                zuyd_ok = (
+                    conn.execute("select public.can_edit_city('heerlen')").fetchone()[0] is True
+                    and conn.execute("select public.can_edit_city('sittard-geleen')").fetchone()[0] is True
+                    and conn.execute("select public.can_edit_city('maastricht')").fetchone()[0] is False
+                )
+                conn.execute("select set_config('request.jwt.claims', %s, true)",
+                             (json.dumps({'sub': 'tud-1', 'app_metadata': {'role': 'editor', 'institution_id': 'tud'}}),))
+                tud_shared_blk = conn.execute("select public.can_edit_city('delft')").fetchone()[0] is False
+                check('009 zuyd owns heerlen/sittard-geleen and tud blocked on shared delft', zuyd_ok and tud_shared_blk)
+                assert_blocked(
+                    '009 future last_verified rejected on editor_upsert_service (22023)',
+                    "select nl_content.editor_upsert_service(%s::jsonb, %s)",
+                    (json.dumps({
+                        'service_id': 'thuas_io', 'name': 'Future Test', 'service_type': 'support',
+                        'city_id': 'the-hague', 'municipality_id': 'the-hague', 'for_institution_id': 'thuas',
+                        'description': 'Future date test.', 'url': 'https://www.thuas.com/',
+                        'last_verified': '2099-01-01'
+                    }), 'Attempt future last_verified'),
+                    psycopg.errors.InvalidParameterValue
+                )
+                assert_blocked(
+                    '009 future last_verified rejected on editor_upsert_step_local (22023)',
+                    "select nl_content.editor_upsert_step_local(%s::jsonb, %s)",
+                    (json.dumps({
+                        'step_id': 'register_municipality', 'municipality_id': 'the-hague',
+                        'for_institution_id': 'thuas', 'body': 'Future date test.', 'links': [],
+                        'last_verified': '2099-01-01'
+                    }), 'Attempt future last_verified on step_local'),
+                    psycopg.errors.InvalidParameterValue
+                )
+
+                # Super admin edits shared city & publishes new fact version (auto-closes previous version)
+                conn.execute("select set_config('request.jwt.claims', %s, true)",
+                             (json.dumps({'sub': 'admin-1', 'app_metadata': {'role': 'super_admin'}}),))
+                assert_blocked(
+                    '009 future last_verified rejected on editor_publish_fact (22023)',
+                    "select nl_content.editor_publish_fact(%s::jsonb, %s)",
+                    (json.dumps({
+                        'fact_key': 'cak_fine_eur', 'label': 'CAK fine', 'value': '540.00',
+                        'unit': 'EUR', 'source_id': 'cak-fine-en', 'last_verified': '2099-01-01'
+                    }), 'Attempt future last_verified on fact'),
+                    psycopg.errors.InvalidParameterValue
+                )
+                sa_svc = conn.execute(
+                    "select nl_content.editor_upsert_service(%s::jsonb, %s)",
+                    (json.dumps({
+                        'service_id': 'the_student_doctors', 'name': 'The Student Doctors (Verified)',
+                        'service_type': 'gp', 'city_id': 'the-hague', 'municipality_id': 'the-hague',
+                        'for_institution_id': None, 'description': 'Verified municipal GP list.',
+                        'url': 'https://www.thestudentdoctors.nl/'
+                    }), 'Super admin shared city verification')
+                ).fetchone()[0]
+                sa_fact = conn.execute(
+                    "select nl_content.editor_publish_fact(%s::jsonb, %s)",
+                    (json.dumps({
+                        'fact_key': 'cak_fine_eur', 'label': 'CAK fine for being uninsured',
+                        'value': '540.00', 'unit': 'EUR', 'source_id': 'cak-fine-en',
+                        'step_id': 'cak_letter', 'valid_from': '2027-01-01'
+                    }), 'Annual CAK rate update test')
+                ).fetchone()[0]
+                check('009 super_admin can edit shared city & publish versioned fact',
+                      sa_svc['name'].endswith('(Verified)') and sa_fact['value'] == '540.00')
+
+                # Tenant-scoped stale_count check: insert stale uva service & verify thuas does not count uva or national facts
+                conn.execute(
+                    "select nl_content.editor_upsert_service(%s::jsonb, %s)",
+                    (json.dumps({
+                        'service_id': 'uva_stale_test', 'name': 'UvA Old Desk', 'service_type': 'support',
+                        'city_id': 'amsterdam', 'municipality_id': 'amsterdam', 'for_institution_id': 'uva',
+                        'description': 'Stale cross-tenant test record.', 'url': 'https://www.uva.nl/en',
+                        'last_verified': '2025-01-01'
+                    }), 'Seed stale UvA service for stale_count scoping test')
+                )
+                sa_stale = conn.execute("select nl_content.editor_list()").fetchone()[0]['meta']['stale_count']
+                conn.execute("select set_config('request.jwt.claims', %s, true)",
+                             (json.dumps({'sub': 'thuas-1', 'app_metadata': {'role': 'editor', 'institution_id': 'thuas'}}),))
+                thuas_stale = conn.execute("select nl_content.editor_list()").fetchone()[0]['meta']['stale_count']
+                check('009 editor_list stale_count is tenant-scoped (thuas < super_admin)',
+                      thuas_stale < sa_stale, f'thuas_stale={thuas_stale}, sa_stale={sa_stale}')
+
+                conn.execute('reset role')
+                hist = conn.execute(
+                    "select count(*), count(*) filter (where valid_to is null) from nl_content.fact where fact_key = 'cak_fine_eur'"
+                ).fetchone()
+                check('009 on_fact_insert auto-closes prior version (2 total, 1 active)',
+                      hist[0] == 2 and hist[1] == 1, str(hist))
+
+                audit_cnt = conn.execute("select count(*) from nl_content.staff_change").fetchone()[0]
+                check('009 staff_change logged all 5 valid mutations', audit_cnt >= 5, f'audit_cnt={audit_cnt}')
+
+                conn.execute('savepoint sp_audit_immut')
+                immut_blk = False
+                try:
+                    conn.execute("delete from nl_content.staff_change")
+                except psycopg.errors.InsufficientPrivilege:
+                    immut_blk = True
+                conn.execute('rollback to savepoint sp_audit_immut')
+                check('009 staff_change is append-only (DELETE blocked with 42501)', immut_blk)
+
+                conn.execute('rollback;')
+            except Exception as exc:
+                try:
+                    conn.execute('rollback;')
+                except Exception:
+                    pass
+                check('live Content Editor PostgreSQL suite', False, str(exc))
+
+            # 6. Multi-connection concurrent stress test (accumulate, publish_snapshot & editor_upsert_service)
+            try:
+                reset_data(conn)
+                conn.execute('truncate nl_content.staff_change restart identity')
+
+                def worker_ingest(idx):
+                    batch = (
+                        [{'institution': 'thuas', 'intake': '2026-sep', 'event': 'cohort_joined', 'app_version': '3b32b5914fb6bdfc'} for _ in range(25)]
+                        + [{'institution': 'thuas', 'intake': '2026-sep', 'event': 'step_applies', 'category': 'housing', 'app_version': '3b32b5914fb6bdfc'} for _ in range(25)]
+                        + [{'institution': 'thuas', 'intake': '2026-sep', 'event': 'step_completed', 'category': 'housing', 'app_version': '3b32b5914fb6bdfc'} for _ in range(15)]
+                    )
+                    with psycopg.connect(uri, autocommit=True) as wconn:
+                        return wconn.execute('select nl.ingest_t1_rpc(%s::jsonb)', (json.dumps(batch),)).fetchone()[0]
+
+                def worker_accumulate():
+                    with psycopg.connect(uri, autocommit=True) as wconn:
+                        return wconn.execute('select nl.accumulate()').fetchone()[0]
+
+                with ThreadPoolExecutor(max_workers=4) as pool:
+                    futs = [
+                        pool.submit(worker_ingest, 0),
+                        pool.submit(worker_accumulate),
+                        pool.submit(worker_ingest, 1),
+                        pool.submit(worker_accumulate),
+                    ]
+                    for f in futs:
+                        f.result()
+
+                conn.execute('select nl.accumulate()')
+                tot_contrib = conn.execute("select contributors from nl.t1_cohort where institution='thuas' and intake='2026-sep'").fetchone()[0]
+                cell_nh = conn.execute("select num, denom from nl.accumulated_cell where table_id='t1_inst_category' and row_key='thuas:housing' and col_key='2026-sep'").fetchone()
+                check('concurrency: parallel ingest + accumulate conserves exact counts (50 contrib, 30/50 cell)',
+                      tot_contrib == 50 and cell_nh == (30, 50), f'contrib={tot_contrib}, cell={cell_nh}')
+
+                def worker_publish(i):
+                    with psycopg.connect(uri, autocommit=True) as wconn:
+                        return wconn.execute('select nl.publish_snapshot(%s)', (f'concurrent-pub-{i}',)).fetchone()[0]
+
+                with ThreadPoolExecutor(max_workers=4) as pool:
+                    snaps = [f.result() for f in [pool.submit(worker_publish, i) for i in range(4)]]
+                check('concurrency: 4 simultaneous publish_snapshot() calls serialize cleanly without 23505',
+                      len(set(snaps)) == 4, str(snaps))
+
+                def worker_editor(i):
+                    with psycopg.connect(uri, autocommit=True) as wconn:
+                        wconn.execute('begin;')
+                        wconn.execute('set local role authenticated')
+                        wconn.execute("select set_config('request.jwt.claims', %s, true)",
+                                      (json.dumps({'sub': f'thuas-worker-{i}', 'app_metadata': {'role': 'editor', 'institution_id': 'thuas'}}),))
+                        res = wconn.execute(
+                            'select nl_content.editor_upsert_service(%s::jsonb, %s)',
+                            (json.dumps({
+                                'service_id': f'thuas_conc_{i}', 'name': f'THUAS Desk {i}',
+                                'service_type': 'support', 'city_id': 'the-hague', 'municipality_id': 'the-hague',
+                                'for_institution_id': 'thuas', 'description': f'Concurrent worker {i} desk.',
+                                'url': 'https://www.thuas.com/study-choice/international-office'
+                            }), f'Concurrent upsert {i}')
+                        ).fetchone()[0]
+                        wconn.execute('commit;')
+                        return res['service_id']
+
+                with ThreadPoolExecutor(max_workers=4) as pool:
+                    svcs = [f.result() for f in [pool.submit(worker_editor, i) for i in range(4)]]
+                conc_logs = conn.execute("select count(*) from nl_content.staff_change where entity_key like 'thuas_conc_%'").fetchone()[0]
+                conn.execute("delete from nl_content.service where service_id like 'thuas_conc_%'")
+                check('concurrency: 4 simultaneous editor_upsert_service() calls commit & log 4 staff_change rows',
+                      len(set(svcs)) == 4 and conc_logs == 4, f'svcs={svcs}, logs={conc_logs}')
+            except Exception as exc:
+                check('multi-connection concurrency suite', False, str(exc))
 
     finally:
         if pg is not None:

@@ -1,12 +1,13 @@
 # Netherlanded – Consolidated Legal, App & Analytics Package (v2.1)
 
-Netherlanded is a checklist app for first-year international students arriving in the Netherlands (Creative Business Solutions project, THUAS). This folder consolidates the working prototype, the harmonised legal documentation (v2.1), the PostgreSQL statistical disclosure-control backend, the dashboard renderer, and the verification suite.
+Netherlanded is a checklist and arrival-guidance web application for first-year international students arriving in the Netherlands (International Business project, THUAS). This repository consolidates the working student app, the harmonised legal documentation (v2.1), the PostgreSQL statistical disclosure-control & content-editor backends, the University Insights Dashboard, the Content Editor Panel, the business case deliverables, and the automated verification suite.
 
-## What's in this folder
+## What's in this repository
 
 | Path | What it is |
 |---|---|
-| `netherlanded-app.html` | Working prototype (`TERMS_V = '2.1'`) with embedded Terms & Privacy Policy v2.1, separate Tier 1 notice/objection & Tier 2 opt-in consent flows, weekly shuffled client batching, and local telemetry inspection in *See my data*. Open in a browser, ideally in phone size. |
+| `LICENSE` | Proprietary copyright notice (`Copyright (c) 2026 Eirini Konidari. All rights reserved.`). |
+| `netherlanded-app.html` | Working student prototype (`TERMS_V = '2.1'`) with embedded Terms & Privacy Policy v2.1, separate Tier 1 notice/objection & Tier 2 opt-in consent flows, weekly shuffled client batching, and local telemetry inspection in *See my data*. |
 | `TERMS_AND_PRIVACY.md` | Terms of Service and Privacy Policy, version 2.1 (21 November 2026), harmonised with `LEGAL_DELTA.md` and `COMPLIANCE_CHECK.md`. The exact same text is embedded inside `netherlanded-app.html`. |
 | `LEGITIMATE_INTEREST_ASSESSMENT.md` | Written balancing test for Tier 1 limited service statistics (GDPR Art. 6(1)(f)), covering both Netherlanded's and participating universities' interests. |
 | `DISCLOSURE_CONTROL.md` | How statistics reach universities: 6-rule disclosure-control pipeline, 15-student floor, rounding to 5, delta/sticky/complementary suppression, controller model, and use restrictions. |
@@ -15,68 +16,56 @@ Netherlanded is a checklist app for first-year international students arriving i
 | `LEGAL_DELTA.md` | Audit of 10 legal-text and implementation corrections owed before production, with v2.1 consolidation status. |
 | `LEGAL_IMPLEMENTATION_NOTES.md` | Concise legal-engineering handover notes and remaining production conditions. |
 | `RELEASE_CHECKLIST.md` | Pre-production deployment, privacy, and testing checklist. |
-| `db/001_schema.sql` | PostgreSQL 15+ analytics schema: separate `nl.raw_t1` and `nl.raw_t2` stores, 7 app categories, release/suppression tables. |
-| `db/002_ingest.sql` | Tier 1 (`nl.ingest_t1`) and Tier 2 (`nl.ingest_t2`) ingest RPCs with shape validation and identity-field rejection (`22023`). |
-| `db/003_release.sql` | Hourly fold (`nl.accumulate()`), 6-rule suppression (`nl.build_stage()`), pre-publish audit (`nl.assert_release_safe()`), snapshot publication, and JSON export (`nl.release_json()`). |
-| `db/004_retention.sql` | Retention policy (`48 hours` ceiling on raw events, `90` days staging, `1095` days / 3 years snapshots), `nl.purge_raw()`, delete-guard triggers, and `nl.health()`. |
-| `db/005_content_editor_security_fix.sql` | Shared-city editor privilege fix (`can_edit_city`) with safe `search_path = public, pg_temp`. |
-| `db/006_security_rls_and_scoping.sql` | Least-privilege schema locks, RLS on all `nl` tables, campus-NAT-friendly `pg_catalog.sha256` hourly rate-limiting RPCs (`nl.ingest_t1_rpc`, `nl.ingest_t2_rpc`), and per-institution scoped release JSON (`nl.release_json_for_institution`). |
-| `db/007_seed_vocab.sql` | Idempotent seed script generated from `netherlanded-app.html` for all 29 participating institutions and 19 journey steps. |
-| `db/008_scoped_insights.sql` | Institution-scoped category, step, opened, missed-deadline, region, and scam-check release tables folding all collected Tier 1 & Tier 2 fields under the 6-rule disclosure-control pipeline. |
+| `db/001_schema.sql`–`db/008_scoped_insights.sql` | PostgreSQL 15+ analytics schema, Tier 1/2 ingest RPCs, hourly fold (`nl.accumulate()`), 6-rule suppression (`nl.build_stage()`), retention (`48 hours` raw ceiling), RLS, campus-NAT rate limiting, vocabulary seeds (29 institutions, 19 steps), and tenant-scoped release exporter (`nl.release_json_for_institution`). |
+| `db/005_content_editor_security_fix.sql` & `db/009_content_editor.sql` | Shared-city editor privilege fix (`public.can_edit_city`) and isolated `nl_content` schema (`service`, `step_local`, versioned `fact` with `on_fact_insert` auto-closing trigger, append-only `staff_change` audit log, and 5 fail-closed `SECURITY DEFINER` RPCs). |
 | `db/test_sql.sql` | Transactional (`BEGIN ... ROLLBACK`) PostgreSQL verification suite exercising ingest, batching, `22023`/`42501` guards, folding, snapshot safety, cross-institution isolation, purge, and health. |
-| `edge/` | Thin Deno/Supabase Edge adapters (`ingest/index.ts`, `stats/index.ts`) and reverse-proxy hardening (`security-headers.conf` for IP-free logs, `frame-ancestors 'none'`, `nosniff`). |
-| `web/dashboard.html` | Strict-CSP, dependency-free university insights page hosting `web/stats.js` and staff JWT authentication input. |
-| `web/stats.js` | Dependency-free dashboard renderer (zero `innerHTML`, `credentials: 'omit'`, 10s timeout, tail capping at `<= 10.0%` / `>= 90.0%`, withheld bucket/row display, and cold-start UX). |
+| `edge/` | Stateless Deno/Supabase Edge adapters (`ingest/index.ts`, `stats/index.ts`, `editor/index.ts`) and reverse-proxy hardening (`security-headers.conf` for IP-free logs, `/api/t1`, `/api/t2`, `/api/stats`, `/api/editor`, `frame-ancestors 'none'`, `nosniff`). |
+| `web/dashboard.html` & `web/stats.js` | Strict-CSP, zero-`innerHTML` University Dashboard with Polder/Horizon light & dark UI, v2.1-compliant Demo Preview (`floor >= 15`, rounded to 5, tail-capped `<= 10.0%` / `>= 90.0%`), formula-safe CSV export, and live `/api/stats` Staff JWT mode. |
+| `web/editor.html` & `web/editor.js` | Strict-CSP, zero-`innerHTML` 6-tab Content Editor Panel (`To check`, `Local texts`, `Services`, `Figures`, `Steps`, `Changes`) enforcing `can_edit_city()` shared-city locks, THUAS override workflow, URL validation, change reasons, JSON export, and live `/api/editor` sync. |
 | `sw.js`, `web/manifest.webmanifest` & `web/icon.svg` | Root-scoped HTTPS Service Worker (skipping `/api/` and `no-store` responses, same-origin notification URL validation) and PWA manifest/icon. |
-| `tools/suppress_reference.py` | Executable Python reference implementation of the 6 suppression rules. |
-| `tools/test_suppression.py` | 62-check unit + static verification suite for suppression rules, SQL invariants, dashboard safety, and docs. |
-| `tools/verify_build.py` | End-to-end build verifier checking `tools/test_suppression.py`, CSP SHA-256 hash integrity, JSON/JS symbols, SQL security/seeding parity, and dashboard CSP. |
-| `tools/run_pg_tests.py` | Embedded PostgreSQL test runner (via `pgserver` + `psycopg[binary]`) executing `db/001`–`db/008`, `db/005`, `db/test_sql.sql`, and live `anon`/`authenticated` role-isolation checks. |
+| `tools/` | `suppress_reference.py` (Python reference engine), `test_suppression.py` (62 checks), `verify_build.py` (162 checks), and `run_pg_tests.py` (live PostgreSQL 16.2 test & multi-connection concurrency runner). |
+| `business/` | IB business deliverables: `COMPETITOR_ANALYSIS.md`, `BUSINESS_MODEL_AND_ROI.md`, `STAKEHOLDER_ANALYSIS.md`, `CHECKLIST_BENCHMARK_AUDIT.md`, `INTERNATIONAL_EXPANSION_OUTLOOK.md` (CAGE framework), and `REPORT_HYGIENE_AND_REFLECTION.md`. |
 | `architecture/` | System architecture (`ARCHITECTURE.md`), `INFRASTRUCTURE.md`, `SECURITY_AUDIT.md`, `CHECKLISTS.md`, `SOURCE_AND_BUILD.md`, research (`FACT_CHECK.md`, `CITY_RESEARCH.md`), and design history. |
+| `.github/workflows/` | GitHub Actions workflows: `ci.yml` (runs all 3 verification suites on push/PR) and `pages.yml` (publishes `index.html`, `netherlanded-app.html`, `sw.js`, and `web/` to GitHub Pages). |
+| `index.html` | Static GitHub Pages landing portal linking directly to `netherlanded-app.html`, `web/dashboard.html`, and `web/editor.html` in Demo Mode. |
 
-## How to see the legal flow in the app
+## How to preview the app, dashboard, and editor
 
-1. Open `netherlanded-app.html`. Profile setup starts: school, then city or campus, then where you live.
-2. After the profile you see **Before you start**: the key terms and a link to the full Terms and Privacy Policy (v2.1). Tap *Agree and continue*.
-3. Next comes **Limited service statistics** (Tier 1), a dedicated notice with equal *Continue* and *Object to limited statistics* buttons.
-4. Then **Contribute to university support insights**, the separate opt-in for Tier 2. *Continue with sharing* and *Continue without sharing* have equal weight; *Decide later* asks once more after 3 finished steps or 3 weeks; *See exactly what is included* lists both tiers.
-5. Both choices can be changed in **Profile → Privacy & legal** (*Anonymous statistics*). Switching either off deletes its counts on the phone. Inspect stored data under *Profile → See my data* and reset with *Profile → Delete all data*.
+1. **Student App (`netherlanded-app.html`):** Open in a browser (ideally mobile viewport). Complete profile setup, review **Before you start** (Terms & Privacy v2.1), then review the separate **Limited service statistics** (Tier 1) and **Contribute to university support insights** (Tier 2) screens.
+2. **University Dashboard (`web/dashboard.html`):** Open directly in a browser to explore the v2.1-hardened Demo Preview across `THUAS International Office`, `Leiden University`, and `THUAS Zoetermeer (<15 suppression state)`, or paste a Staff Bearer JWT to query `/api/stats`.
+3. **Content Editor (`web/editor.html`):** Open in a browser to test the 6-tab editorial workflow and switch between `THUAS International Office` (shared cities locked, institution overrides and Zoetermeer unlocked) and `Project team (all content)`, or connect to `/api/editor` with a Staff JWT.
 
-## Running the analytics database and tests
+## Running the verification suites
 
-Requirements: Python 3, and (for the database) PostgreSQL 15+ with `psql`.
+Requirements: Python 3.10+ (and `pgserver` + `psycopg[binary]` for embedded PostgreSQL 16 testing, or `docker` and `psql` for a containerised instance).
 
-Run the verification suites:
+```bash
+python3 tools/test_suppression.py
+python3 tools/verify_build.py
+python3 tools/run_pg_tests.py
+```
 
-    python3 tools/test_suppression.py
-    python3 tools/verify_build.py
-    python3 tools/run_pg_tests.py   # requires pgserver and psycopg[binary]
+To apply the SQL migrations manually on a throwaway PostgreSQL container via `docker` and `psql`:
 
-To test the SQL migrations on a throwaway PostgreSQL container via `docker` and `psql`:
+```bash
+docker run --name nl-pg -e POSTGRES_PASSWORD=dev -p 5432:5432 -d postgres:16
+export PGPASSWORD=dev
+psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f db/001_schema.sql
+psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f db/002_ingest.sql
+psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f db/003_release.sql
+psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f db/004_retention.sql
+psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f db/006_security_rls_and_scoping.sql
+psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f db/007_seed_vocab.sql
+psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f db/008_scoped_insights.sql
+psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f db/009_content_editor.sql
+psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f db/test_sql.sql
+```
 
-    docker run --name nl-pg -e POSTGRES_PASSWORD=dev -p 5432:5432 -d postgres:16
-    export PGPASSWORD=dev
-    psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f db/001_schema.sql
-    psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f db/002_ingest.sql
-    psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f db/003_release.sql
-    psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f db/004_retention.sql
-    psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f db/006_security_rls_and_scoping.sql
-    psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f db/007_seed_vocab.sql
-    psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f db/008_scoped_insights.sql
-    psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f db/test_sql.sql
+## Verification status
 
-Seed an institution, ingest a smoke test, and fold/release a snapshot:
-
-    insert into nl.institution (institution, display_name) values ('thuas', 'The Hague University of Applied Sciences');
-    select nl.ingest_t1('{"institution":"thuas","intake":"2026-sep","event":"step_applies","category":"housing","app_version":"3b32b5914fb6bdfc"}');
-    select nl.accumulate();
-    select nl.publish_snapshot('first release');
-    select jsonb_pretty(nl.release_json(null));
-
-## What has and has not been verified
-
-- `tools/test_suppression.py` (62/62 checks) and `tools/verify_build.py` (126/126 checks) pass across the suppression engine, CSP SHA-256 hash, dashboard, SQL invariants, edge adapters, PWA files, and vocabulary seeds.
-- `tools/run_pg_tests.py` (22/22 checks) executed `db/001`–`db/008`, `db/005`, `db/test_sql.sql`, and live `anon`/`authenticated` role-isolation checks against an embedded local PostgreSQL 16.2 server.
-- **Production deployment has not been run yet.** Live Supabase/hosted `pg_cron` jobs, Edge Functions (`edge/ingest`, `edge/stats`), and production gateway IP stripping still need to be tested against the target Supabase/Postgres instance.
+- `tools/test_suppression.py` (**62/62 checks**) and `tools/verify_build.py` (**162/162 checks**) pass across the suppression engine, CSP SHA-256 hash, dashboard, content editor, SQL invariants, edge adapters, PWA files, and vocabulary seeds.
+- `tools/run_pg_tests.py` (**63/63 checks**) executes `db/001`–`db/009`, `db/test_sql.sql`, live `anon`/`authenticated` role-isolation checks, shared-city editor privilege boundaries, and multi-connection concurrency stress tests against an embedded PostgreSQL 16.2 server.
+- **Total automated checks: 287 / 287 passing.**
+- **Production deployment has not been run yet.** Live hosted `pg_cron` jobs, Edge Functions (`edge/ingest`, `edge/stats`, `edge/editor`), and gateway IP stripping still need to be tested against the target EU Supabase/Postgres host.
 - Four external links in `netherlanded-app.html` (`http://international.zuyd.nl/`, `http://www.huisartsenpostdelft.nl/english/`, `http://www.lebecitycampus.nl/en/`, `http://www.stichtingveste.nl/index.php/nieuw-in-venlo/`) remain on `http://` because their TLS certificates failed verification during checking (5 other verified links were upgraded to `https://`).
-- Before real students use the app, all open governance/legal items in `COMPLIANCE_CHECK.md`, `LEGAL_DELTA.md`, and `RELEASE_CHECKLIST.md` (named controller, DPIA, Art. 28 DPAs, university agreements, per-institution dashboard scoping, edge IP stripping, and privacy-officer sign-off on Tier 1) must be completed. The texts in this package are not legal advice.
+- Before a live production rollout with real students, complete the external governance items in `COMPLIANCE_CHECK.md` and `RELEASE_CHECKLIST.md` (lawyer/DPO sign-off, signed Art. 28 DPAs, and live EU Supabase deployment). The documents in this repository are not formal legal advice.

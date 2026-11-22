@@ -266,6 +266,16 @@ begin
            arrived = nl.t2_base.arrived + excluded.arrived,
            updated_at = now();
 
+    insert into nl.t2_region_base (institution, region, intake, joined, updated_at)
+    select institution, region, intake, count(*), now()
+      from nl.raw_t2
+     where fold_run = v_run
+       and event = 'joined'
+     group by institution, region, intake
+    on conflict (institution, region, intake) do update
+       set joined = nl.t2_region_base.joined + excluded.joined,
+           updated_at = now();
+
     insert into nl.accumulated_cell (table_id, row_key, col_key, num, denom, updated_at)
     select 't2_institution_intake', t.institution, t.intake, b.arrived, b.joined, now()
       from (select distinct institution, intake
@@ -378,11 +388,15 @@ begin
              'col', col_key,
              'col_label', nl.dim_label(r.col_axis, col_key),
              'num', case when v_allow_pooled then num
-                         when num < 5 or (denom - num) < 5 then null
+                         when num < 5 or (denom - num) < 5 or rate <= 0.10 or rate >= 0.90 or denom < 50 then null
                          else num end,
              'denom', denom,
-             'rate', rate,
-             'band', band,
+             'rate', case when v_allow_pooled then rate
+                          when num < 5 or (denom - num) < 5 or rate <= 0.10 or rate >= 0.90 or denom < 50 then null
+                          else rate end,
+             'band', case when v_allow_pooled then band
+                          when num < 5 or (denom - num) < 5 or rate <= 0.10 or rate >= 0.90 then null
+                          else band end,
              'rate_display', case
                when num < 5 or rate <= 0.10 then '<= 10.0%'
                when (denom - num) < 5 or rate >= 0.90 then '>= 90.0%'

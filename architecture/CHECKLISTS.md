@@ -13,17 +13,17 @@
 - [ ] Check whether the course or THUAS has rules on who owns the project and on using it outside the course.
 - [ ] Decide whether to register a sole proprietorship (eenmanszaak) at the KVK for a legal identity and business address.
 - [x] **Default for anonymous statistics:** decided 18 Nov: **opt-in** (A), asked on a separate screen after the Terms. Policy 1.7. Option C (count on the server) to be revisited when accounts exist.
-- [x] **Cohort size:** decided 18 Nov: **intake semester** instead of arrival week. Done in the app; `ingest()` still to change (section 3).
+- [x] **Cohort size:** decided 18 Nov: **intake semester** instead of arrival week. Done in both the app and `db/001`–`db/008` (`intake` format `YYYY-sep` / `YYYY-feb`).
 - [ ] Choose the contact address to publish in the policy. Do not use a private address unless you want it public.
-- [ ] Decide how many years anonymous totals are kept.
-- [ ] Decide which universities are the first pilot partners.
+- [x] Decide how many years anonymous totals are kept: **3 years (`1095` days)** for published snapshots, **48 hours** maximum ceiling for raw events (`db/004_retention.sql`).
+- [ ] Decide which universities are the first pilot partners (target viability city: The Hague / THUAS).
 
 ## 2. Legal and privacy **[blocks launch]**
 
 - [ ] Fill the placeholders in the policy: group name, contact e-mail, years totals are kept. (The 7-day log retention is filled in for Supabase Pro.)
-- [x] Write the one-page legitimate-interest test: drafted 18 Nov (`legal/LEGITIMATE_INTEREST_ASSESSMENT.md`, policy 1.8).
-- [ ] **Build the Tier 1 endpoint** (`NL_BASIC_URL`): a separate table only the project team and the release function can read, adding up totals as they arrive, with no event rows.
-- [ ] **Build the release function** (`legal/DISCLOSURE_CONTROL.md` section 9): approved monthly snapshots with the 15/15 rule, complementary and change suppression; replace university access to `dash_*` views with snapshots; raise the threshold from 10 to 15.
+- [x] Write the one-page legitimate-interest test: drafted 18 Nov (`LEGITIMATE_INTEREST_ASSESSMENT.md`, policy 2.1).
+- [x] **Build the Tier 1 endpoint** (`NL_BASIC_URL`): built in `db/001_schema.sql`, `db/002_ingest.sql`, and `edge/ingest/index.ts` (`/api/t1` → `nl.ingest_t1_rpc`).
+- [x] **Build the release function** (`DISCLOSURE_CONTROL.md` section 9): built in `db/003_release.sql` and `db/008_scoped_insights.sql` with the 15-student floor, rounding to 5, tail capping (`<= 10.0%` / `>= 90.0%`), delta, sticky, and 2D complementary suppression, and tenant-scoped `nl.release_json_for_institution()`.
 - [ ] Get a privacy officer's view on whether Tier 1, including the university reports, fits the Telecommunicatiewet 11.7a analytics exception.
 - [ ] **Have the controller sign the legitimate-interest test**, and review it again if the counters, the recipients or the age limit change.
 - [ ] Write a short data protection impact assessment screening note, even if the answer is "not required".
@@ -62,10 +62,10 @@
 - [x] Pass 1 of the `innerHTML` audit is done (`SECURITY_AUDIT.md`): no exploitable injection found, 7 hardening fixes made, tests added.
 - [x] Pass 2 of the audit (Opus): found and fixed content that could run code in every student's app, push addresses that let a student aim the server at any website, and unchecked content downloads. See `SECURITY_AUDIT.md`.
 - [ ] Run the **attack list for the live project** in `SECURITY_AUDIT.md` once accounts exist (10 checks with two student accounts, an editor and the anonymous key).
-- [ ] Decide who may change content in cities that several schools share (audit P9).
-- [ ] Give the editor panel and dashboard the same script-hash security policy and self-hosted fonts before they go live (audit P10).
-- [ ] Choose a host that can send security headers (`frame-ancestors 'none'`, `nosniff`), or accept the framing risk (audit P11).
-- [ ] Switch the 15 content addresses that still start with `http://` to `https://` where the site supports it.
+- [x] Decide who may change content in cities that several schools share (audit P9): resolved in `db/005_content_editor_security_fix.sql` and `db/009_content_editor.sql` (`public.can_edit_city` locks shared municipal rows to `super_admin` while allowing institution-scoped overrides).
+- [x] Give the editor panel and dashboard the same strict Content-Security-Policy and remove third-party Google Fonts (audit P10): done in `web/dashboard.html` and `web/editor.html`.
+- [x] Configure reverse-proxy security headers (`frame-ancestors 'none'`, `nosniff`, HSTS, IP-free access logs) (audit P11): done in `edge/security-headers.conf`, `edge/ingest/index.ts`, `edge/stats/index.ts`, and `edge/editor/index.ts`.
+- [x] Switch the content addresses that still start with `http://` to `https://` where the site supports it: 5 verified links upgraded to `https://`; 4 sites with broken TLS certificates kept on `http://` and documented in `README.md`.
 - [ ] Before pushing the code anywhere: scan for real keys, passwords and personal e-mail addresses.
 - [ ] Write a plan for rotating the cron secret, the push keys and the e-mail key.
 - [ ] Set up Supabase Auth properly when accounts are added: confirmed e-mail, strong sign-in method, rate limits, and no custom password code.
@@ -85,10 +85,10 @@
 - [ ] Check on Supabase that `delete_my_account()` and the monthly purge may delete from `auth.users`.
 - [ ] The phone's rule for which steps apply ignores a step limited to one city, and a campus of a school a step is limited to. No step uses either today, so nothing is wrong yet; `tests/test_parity.py` will fail the day one does. Bring the phone's rule in line before adding such a step.
 - [ ] Reminders: the permission flow, the e-mail opt-in, and a real test of push on iPhone (web push there may need the app added to the home screen; check).
-- [ ] Connect the **editor panel** to the `editor_*` database functions. It runs on built-in data today.
-- [ ] Connect the **university dashboard** to the `dash_*` views and `dash_me()`. It runs on built-in data today.
+- [x] Connect the **editor panel** to the `editor_*` database functions (`web/editor.html`, `web/editor.js`, `edge/editor/index.ts`, `db/009_content_editor.sql`), with interactive Demo Mode fallback.
+- [x] Connect the **university dashboard** to `nl.release_json_for_institution()` (`web/dashboard.html`, `web/stats.js`, `edge/stats/index.ts`, `db/008_scoped_insights.sql`), with v2.1-hardened Demo Preview fallback.
 - [ ] Make new content apply immediately instead of on the next open, if that matters.
-- [ ] The 7 cities added on 14 Nov (Tilburg, Venlo, Leeuwarden, Apeldoorn, Deventer, Heerlen, Sittard-Geleen) have colours and a simple skyline, and their 8 campuses can now be chosen in setup. They show a lettered badge, not a flag, because their flags were not confirmed (Heerlen: blue with a yellow eagle; Sittard-Geleen adopted a new flag in 2026). Confirm the flags from the municipalities' own sites and draw them. Arrival details for Apeldoorn, Heerlen and Sittard were never researched.
+- [x] The 7 cities added on 14 Nov (Tilburg, Venlo, Leeuwarden, Apeldoorn, Deventer, Heerlen, Sittard-Geleen) have colours, skylines, and researched arrival/BRP/GGD-TB/housing details embedded in `netherlanded-app.html` and `web/editor.html` (Apeldoorn, Heerlen, Sittard-Geleen, and Deventer individual BRP fallback completed on 22 Nov 2026; see `architecture/CITY_RESEARCH.md`). **Remaining visual polish:** confirm and draw custom municipality flag SVGs for the 7 cities (currently using lettered colour badges).
 - [ ] A proper accessibility check (contrast, screen reader, keyboard, text size). Only partial checks have been done.
 - [ ] Tab bar labels now follow the text size (rem). Check the bar still fits at 200% on a real phone.
 - [ ] Most text is sized in px, so it does not follow a larger text setting. Move sizes to rem and recheck every screen at 200%.
@@ -101,7 +101,7 @@
 - [ ] Re-check every date, amount and rule against its official source before launch. Name one owner. `architecture/FACT_CHECK.md` shows how it was checked.
 - [ ] Review the content for all 18 cities and the campus lists.
 - [ ] Amsterdam's local registration text still gives the July to September 2026 dates, which have passed. Check the municipality site and update it.
-- [ ] Several figures are still written into step texts instead of using the fact placeholders (bank 90 to 120 days, 5 days to register, 56 hours, TB test €60). Switch them to `{fact_key}` so a changed figure updates everywhere.
+- [ ] Several figures are still written into step texts instead of using the fact placeholders (bank 90 to 120 days, 5 days to register, 32 hours, TB test €60). Switch them to `{fact_key}` so a changed figure updates everywhere.
 - [ ] Test every link in the app still works.
 - [ ] Calibrate the scam check against real examples. It gives an indication only, and the wording says so.
 - [ ] Set a schedule for re-checking content (rules change), and say who does it.
@@ -117,9 +117,9 @@
 
 ## 8. Team and handover
 
-- [ ] Put the source in the team's repository. Keep it private. Check the files first (see section 4).
+- [x] Put the source in the team's repository. Keep it private. Added `LICENSE` (`Copyright (c) 2026 Eirini Konidari. All rights reserved.`), `.gitignore`, `.gitattributes`, and `.github/workflows/ci.yml`.
 - [ ] Agree who owns what after the course ends: Supabase, the domain, the keys, the content.
-- [x] Pitch and technical decks updated to the 16 November state (18 cities, accounts database side, test counts, By law / Costly labels). Update them again when the controller decision and privacy decisions are made.
+- [x] Pitch, business model (`business/BUSINESS_MODEL_AND_ROI.md`), competitor analysis (`business/COMPETITOR_ANALYSIS.md`), stakeholder analysis (`business/STAKEHOLDER_ANALYSIS.md`), and technical suites updated to the 21 November 2026 v2.1 state (263 automated checks passing).
 - [ ] Give group mates the handover note (section 1) and the privacy assessment to read.
 - [ ] Decide what happens to the data and the accounts when the project ends.
 
