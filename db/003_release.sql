@@ -342,22 +342,24 @@ begin
     -- 5b. secondary: a lone withheld cell in an institution-scoped column can be
     -- recovered from the institution total minus its siblings, so also withhold
     -- the smallest published sibling in that group.
+    --     (one grouped pass, then a hash join: linear in the number of cells; the earlier
+    --     correlated subquery rescanned the table per candidate and was quadratic)
     update nl.stage_cell s
        set reason = 'complementary', rate = null, band = null
-      from (select distinct on (s2.table_id, split_part(s2.row_key, ':', 1), s2.col_key)
+      from (select distinct on (g.table_id, g.scope_key, g.col_key)
                    s2.table_id, s2.row_key, s2.col_key
-              from nl.stage_cell s2
-              join nl.release_table rt on rt.table_id = s2.table_id
-             where rt.row_axis in ('inst_category', 'inst_step', 'inst_region')
-               and s2.reason is null
-               and (select count(*)
+              from (select s3.table_id, split_part(s3.row_key, ':', 1) as scope_key, s3.col_key
                       from nl.stage_cell s3
-                     where s3.table_id = s2.table_id
-                       and split_part(s3.row_key, ':', 1) = split_part(s2.row_key, ':', 1)
-                       and s3.col_key = s2.col_key
-                       and s3.reason is not null) = 1
-             order by s2.table_id, split_part(s2.row_key, ':', 1), s2.col_key,
-                      s2.denom_true, s2.row_key) v
+                      join nl.release_table rt on rt.table_id = s3.table_id
+                     where rt.row_axis in ('inst_category', 'inst_step', 'inst_region')
+                     group by s3.table_id, split_part(s3.row_key, ':', 1), s3.col_key
+                    having count(*) filter (where s3.reason is not null) = 1) g
+              join nl.stage_cell s2
+                on s2.table_id = g.table_id
+               and split_part(s2.row_key, ':', 1) = g.scope_key
+               and s2.col_key = g.col_key
+               and s2.reason is null
+             order by g.table_id, g.scope_key, g.col_key, s2.denom_true, s2.row_key) v
      where s.table_id = v.table_id
        and s.row_key = v.row_key
        and s.col_key = v.col_key;
