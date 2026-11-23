@@ -423,6 +423,14 @@ def main():
                 """)
                 conn.execute(read_sql('009_content_editor.sql'))
                 check('execute 009_content_editor.sql', True)
+                conn.execute(read_sql('010_function_search_path.sql'))
+                unpinned = conn.execute("""
+                    select n.nspname || '.' || p.proname from pg_proc p
+                      join pg_namespace n on n.oid = p.pronamespace
+                     where n.nspname in ('nl', 'nl_content') and p.prokind = 'f'
+                       and not exists (select 1 from unnest(coalesce(p.proconfig, '{}')) c
+                                        where c like 'search_path=%')""").fetchall()
+                check('010 every nl/nl_content function pins search_path', not unpinned, str(unpinned))
 
                 conn.execute('begin;')
                 # Anon & empty authenticated blocked (42501)
