@@ -130,6 +130,14 @@ def main():
                       end if;
                     end $$;
                 """)
+                # Reproduce Supabase's default ACLs: every new table/function/sequence in the
+                # public schema is granted to anon and authenticated (applies to 009 below).
+                conn.execute("""
+                    grant usage on schema public to anon, authenticated;
+                    alter default privileges in schema public grant all on tables to anon, authenticated;
+                    alter default privileges in schema public grant all on functions to anon, authenticated;
+                    alter default privileges in schema public grant all on sequences to anon, authenticated;
+                """)
                 conn.execute(read_sql('006_security_rls_and_scoping.sql'))
                 conn.execute(read_sql('008_scoped_insights.sql'))
 
@@ -792,6 +800,56 @@ def main():
                 conn.execute('rollback;')
             except Exception as exc:
                 check('review-fix regression suite', False, str(exc))
+
+            # 8. Privilege-surface invariants (allowlist; any new callable function or open table fails)
+            try:
+                schemas = "('nl', 'nl_content', 'public')"
+                callable_rows = conn.execute(f"""
+                    select r.rolname, n.nspname || '.' || p.proname
+                      from pg_proc p
+                      join pg_namespace n on n.oid = p.pronamespace
+                      cross join (select rolname from pg_roles where rolname in ('anon', 'authenticated')) r
+                     where n.nspname in {schemas}
+                       and has_schema_privilege(r.rolname, n.oid, 'USAGE')
+                       and has_function_privilege(r.rolname, p.oid, 'EXECUTE')""").fetchall()
+                got = {}
+                for role, fn in callable_rows:
+                    got.setdefault(role, set()).add(fn)
+                allow = {
+                    'anon': {'nl.ingest_t1_rpc', 'nl.ingest_t2_rpc'},
+                    'authenticated': {'nl.ingest_t1_rpc', 'nl.ingest_t2_rpc', 'nl.release_json_for_institution',
+                                      'nl_content.editor_list', 'nl_content.editor_upsert_service',
+                                      'nl_content.editor_upsert_step_local', 'nl_content.editor_publish_fact',
+                                      'nl_content.editor_mark_verified', 'public.can_edit_city'},
+                }
+                for role in ('anon', 'authenticated'):
+                    extra = sorted(got.get(role, set()) - allow[role])
+                    check(f'surface: {role} can call only allowlisted functions (Supabase default ACLs applied)', not extra, str(extra))
+                no_rls = conn.execute(f"""
+                    select n.nspname || '.' || c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
+                     where c.relkind in ('r', 'p') and n.nspname in {schemas} and not c.relrowsecurity""").fetchall()
+                check('surface: every table in nl / nl_content / public has RLS enabled', not no_rls, str(no_rls))
+                grants = conn.execute(f"""
+                    select grantee, table_schema || '.' || table_name, privilege_type
+                      from information_schema.role_table_grants
+                     where grantee in ('anon', 'authenticated', 'PUBLIC') and table_schema in {schemas}""").fetchall()
+                check('surface: anon/authenticated/PUBLIC hold no table or view privileges', not grants, str(grants[:5]))
+                policies = conn.execute(f"select schemaname || '.' || tablename from pg_policies where schemaname in {schemas}").fetchall()
+                check('surface: no RLS policies exist (all access goes through SECURITY DEFINER RPCs)', not policies, str(policies))
+                bad_definer = conn.execute(f"""
+                    select n.nspname || '.' || p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                     where n.nspname in {schemas} and p.prosecdef
+                       and not exists (select 1 from unnest(coalesce(p.proconfig, '{{}}')) x where x like 'search_path=%')""").fetchall()
+                check('surface: every SECURITY DEFINER function pins search_path', not bad_definer, str(bad_definer))
+
+                conn.execute('begin;')
+                conn.execute('set local role anon')
+                check('surface: anon cannot rewrite public.institution_campuses (shared-city escalation)',
+                      rejects("delete from public.institution_campuses where city_id = 'the-hague'", None,
+                              psycopg.errors.InsufficientPrivilege))
+                conn.execute('rollback;')
+            except Exception as exc:
+                check('privilege-surface invariant suite', False, str(exc))
 
     finally:
         if pg is not None:

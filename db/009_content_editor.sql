@@ -114,9 +114,22 @@ as $$
 $$;
 
 revoke execute on function public.can_edit_city(text) from public;
+
+-- institution_campuses decides who may edit shared-city content, so it must not be
+-- writable (or readable) through the API. Supabase grants ALL on new public-schema
+-- tables and functions to anon/authenticated by default, so revoke explicitly and
+-- enable RLS with no policies. Only SECURITY DEFINER functions read it.
+alter table public.institution_campuses enable row level security;
+revoke all on table public.institution_campuses from public;
+
 do $$
 begin
+  if exists (select 1 from pg_roles where rolname = 'anon') then
+    execute 'revoke all on table public.institution_campuses from anon';
+    execute 'revoke execute on function public.can_edit_city(text) from anon';
+  end if;
   if exists (select 1 from pg_roles where rolname = 'authenticated') then
+    execute 'revoke all on table public.institution_campuses from authenticated';
     execute 'grant execute on function public.can_edit_city(text) to authenticated';
   end if;
 end $$;

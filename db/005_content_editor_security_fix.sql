@@ -49,6 +49,10 @@ $$;
 revoke execute on function public.can_edit_city(text) from public;
 do $$
 begin
+  if exists (select 1 from pg_roles where rolname = 'anon') then
+    -- Supabase default privileges grant anon EXECUTE on new public functions
+    execute 'revoke execute on function public.can_edit_city(text) from anon';
+  end if;
   if exists (select 1 from pg_roles where rolname = 'authenticated') then
     execute 'grant execute on function public.can_edit_city(text) to authenticated';
   end if;
