@@ -793,6 +793,19 @@ def main():
                 conn.execute("select set_config('request.headers', %s, true)", (json.dumps({'x-nl-ingest-secret': 's3cret'}),))
                 check('fix: ingest with correct gateway header is accepted',
                       conn.execute('select nl.ingest_t1_rpc(%s::jsonb)', (json.dumps(base1),)).fetchone()[0] == 1)
+                # rotation: a second hash may be active; a third is refused; deleting the old one retires it
+                conn.execute("insert into nl.ingest_gateway (secret_sha256) values (encode(sha256(convert_to('n3w', 'UTF8')), 'hex'))")
+                conn.execute("select set_config('request.headers', %s, true)", (json.dumps({'x-nl-ingest-secret': 'n3w'}),))
+                new_ok = conn.execute('select nl.ingest_t1_rpc(%s::jsonb)', (json.dumps(base1),)).fetchone()[0] == 1
+                conn.execute("select set_config('request.headers', %s, true)", (json.dumps({'x-nl-ingest-secret': 's3cret'}),))
+                old_ok = conn.execute('select nl.ingest_t1_rpc(%s::jsonb)', (json.dumps(base1),)).fetchone()[0] == 1
+                check('fix: secret rotation - old and new gateway secrets both work while two hashes are active', new_ok and old_ok)
+                check('fix: secret rotation - a third active gateway hash is refused (23514)',
+                      rejects("insert into nl.ingest_gateway (secret_sha256) values (encode(sha256(convert_to('x3', 'UTF8')), 'hex'))",
+                              None, psycopg.errors.CheckViolation))
+                conn.execute("delete from nl.ingest_gateway where secret_sha256 = encode(sha256(convert_to('s3cret', 'UTF8')), 'hex')")
+                check('fix: secret rotation - the deleted old secret is refused afterwards',
+                      rejects('select nl.ingest_t1_rpc(%s::jsonb)', (json.dumps(base1),), psycopg.errors.InsufficientPrivilege))
                 conn.execute('rollback;')
 
                 # scoped reader cannot request an older snapshot
@@ -931,6 +944,30 @@ def main():
                 conn.execute('alter table nl.raw_t2 alter column rkey set default 0')
             except Exception as exc:
                 check('cell-key perturbation suite', False, str(exc))
+
+            # 10. Benchmark (pooled) cells: >= 3 institutions and no dominant institution (P3)
+            try:
+                def pooled_state(counts):
+                    reset_data(conn)
+                    b = []
+                    for inst, n in counts.items():
+                        b += [{'institution': inst, 'intake': '2026-sep', 'event': 'cohort_joined', 'app_version': 'abcd1234'}] * 20
+                        b += [{'institution': inst, 'intake': '2026-sep', 'event': 'step_applies', 'category': 'housing', 'app_version': 'abcd1234'}] * n
+                        b += [{'institution': inst, 'intake': '2026-sep', 'event': 'step_completed', 'category': 'housing', 'app_version': 'abcd1234'}] * (n // 2)
+                    ingest_t1_chunked(conn, b)
+                    conn.execute('select nl.accumulate()')
+                    snap = conn.execute("select nl.publish_snapshot('pooled')").fetchone()[0]
+                    pub = conn.execute("select count(*) from nl.published_cell where snapshot_id = %s and table_id = 't1_category_totals' "
+                                       "and row_key = 'housing'", (snap,)).fetchone()[0]
+                    return pub == 1
+                check('benchmark: a pooled cell with only 2 institutions is withheld (no subtraction of the other school)',
+                      not pooled_state({'thuas': 40, 'uva': 40}))
+                check('benchmark: a pooled cell with 3 balanced institutions is published',
+                      pooled_state({'thuas': 40, 'uva': 40, 'leiden': 40}))
+                check('benchmark: a pooled cell where one institution dominates the rest is withheld',
+                      not pooled_state({'thuas': 200, 'uva': 40, 'leiden': 20}))
+            except Exception as exc:
+                check('benchmark publication rule suite', False, str(exc))
 
     finally:
         if pg is not None:

@@ -224,6 +224,40 @@ begin
                      from nl.t2_base b
                     where b.intake = s.col_key), 0) < 15;
 
+  -- 1b. benchmark (pooled) cells: an institution that subtracts its own figures from a pooled
+  --     cell must not recover another school's. Publish only with at least 3 contributing
+  --     institutions and when no institution dominates what is left after removing the second
+  --     largest (largest > 70 % of total minus second largest), on both counts.
+  update nl.stage_cell s
+     set reason = 'floor'
+    from nl.stage_cell s0
+    left join (with parts as (
+            select case a.table_id when 't1_inst_category' then 't1_category_totals' else 't2_step_totals' end as pooled_table,
+                   split_part(a.row_key, ':', 2) as pooled_row, a.col_key, a.num, a.denom
+              from nl.accumulated_cell a
+             where a.table_id in ('t1_inst_category', 't2_inst_step')
+          ),
+          shares as (
+            select pooled_table, pooled_row, col_key,
+                   count(*) filter (where denom > 0) as n_inst,
+                   sum(denom) as t_d, sum(num) as t_n,
+                   (array_agg(denom order by denom desc))[1] as d1,
+                   coalesce((array_agg(denom order by denom desc))[2], 0) as d2,
+                   (array_agg(num order by num desc))[1] as n1,
+                   coalesce((array_agg(num order by num desc))[2], 0) as n2
+              from parts
+             group by pooled_table, pooled_row, col_key
+          )
+               select * from shares) sh
+      on sh.pooled_table = s0.table_id and sh.pooled_row = s0.row_key and sh.col_key = s0.col_key
+   where s.table_id = s0.table_id and s.row_key = s0.row_key and s.col_key = s0.col_key
+     and s.reason is null
+     and s.table_id in ('t1_category_totals', 't2_step_totals')
+     and (sh.pooled_table is null
+            or sh.n_inst < 3
+            or sh.d1 > 0.7 * (sh.t_d - sh.d2)
+            or (sh.t_n > 0 and sh.n1 > 0.7 * (sh.t_n - sh.n2)));
+
   -- 2. perturb by the cell key (-4..+4, fixed per cell contents, secret to clients), round to the
   --    nearest multiple of five, then derive the rate and its five point band. Published denominators
   --    are clamped to at least 15 (only cells whose true denominator passed the floor are published).
@@ -465,6 +499,36 @@ begin
                 group by u.table_id, 2, u.col_key) g
               where g.total > 1 and g.nsup = 1) then
     raise exception 'snapshot % leaves a lone withheld cell in an institution-scoped column', p_snapshot
+      using errcode = '23514';
+  end if;
+  if exists (with parts as (
+         select case a.table_id when 't1_inst_category' then 't1_category_totals' else 't2_step_totals' end as pooled_table,
+                split_part(a.row_key, ':', 2) as pooled_row, a.col_key, a.num, a.denom
+           from nl.accumulated_cell a
+          where a.table_id in ('t1_inst_category', 't2_inst_step')
+       ),
+       shares as (
+         select pooled_table, pooled_row, col_key,
+                count(*) filter (where denom > 0) as n_inst,
+                sum(denom) as t_d, sum(num) as t_n,
+                (array_agg(denom order by denom desc))[1] as d1,
+                coalesce((array_agg(denom order by denom desc))[2], 0) as d2,
+                (array_agg(num order by num desc))[1] as n1,
+                coalesce((array_agg(num order by num desc))[2], 0) as n2
+           from parts
+          group by pooled_table, pooled_row, col_key
+       )
+             select 1
+               from nl.published_cell p
+               left join shares sh
+                 on sh.pooled_table = p.table_id and sh.pooled_row = p.row_key and sh.col_key = p.col_key
+              where p.snapshot_id = p_snapshot
+                and p.table_id in ('t1_category_totals', 't2_step_totals')
+                and (sh.pooled_table is null
+            or sh.n_inst < 3
+            or sh.d1 > 0.7 * (sh.t_d - sh.d2)
+            or (sh.t_n > 0 and sh.n1 > 0.7 * (sh.t_n - sh.n2)))) then
+    raise exception 'snapshot % publishes a benchmark cell with < 3 institutions or a dominant institution', p_snapshot
       using errcode = '23514';
   end if;
 end;

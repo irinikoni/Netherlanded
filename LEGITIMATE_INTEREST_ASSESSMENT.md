@@ -105,7 +105,7 @@ These are lawful, specific interests. Commercial benefit (a better product, a sa
 **3. Balancing test.**
 - **Reasonable expectations:** students are told in the policy (§11, §13) that anonymous national totals are compiled. The benchmark brings no new data category and no new recipient of personal data.
 - **Impact:** outputs are anonymous (floor ≥ 15 at pooled level, cell-key noise, rounding to 5, carry-forward and complementary suppression). Pooled cells are larger than institution cells, so re-identification risk is lower than for the university reports.
-- **Safeguards:** same as Part 1, plus pooled tables are visible only to `super_admin` and privileged roles (`release_json_for_institution` excludes them for scoped readers), and publication is reviewed by a person before release.
+- **Safeguards:** same as Part 1, plus every pooled cell needs at least 3 contributing institutions and no dominant institution (`DISCLOSURE_CONTROL.md`, benchmark cells), so no university can recover another's figures by subtraction; pooled tables are visible only to `super_admin` and privileged roles (`release_json_for_institution` excludes them for scoped readers), and publication is reviewed by a person before release.
 - **Objection:** objecting to Tier 1, or not consenting to Tier 2, also excludes the student from benchmarks.
 
 **Result:** Netherlanded's interests are not overridden. The residual risk is the self-reported-count limitation in `DISCLOSURE_CONTROL.md` ("Known limitation", §5): counts cannot be de-duplicated, which affects accuracy more than privacy.

@@ -85,6 +85,14 @@ This will suppress many pilot results. **Documented alternative**, only after a 
 
 The system holds no identifiers by design, so it cannot de-duplicate devices. The 15-contributor floor counts `cohort_joined` events, and Tier 2 denominators count events. A reinstall, a repeated send, or deliberately fabricated events can inflate a count past the floor or skew a rate. Mitigations: gateway-only ingest (`nl.check_ingest_gateway()`), per-IP limits at Nginx, the per-tier event circuit breaker, and the human people-check before each release. The DPIA must state this residual risk.
 
+### Benchmark (pooled) cells
+
+A pooled cell combines several institutions. Any participating institution can subtract its own published figures, so a pooled cell is published only when:
+- at least **3 institutions** contribute, so subtraction yields the others combined, never one school; and
+- **no institution dominates**: the largest contribution is at most 70 % of the total minus the second-largest, on both counts. Otherwise the second-largest could estimate the largest by subtraction.
+
+Enforced in `nl.build_stage()` and re-checked by `nl.assert_release_safe()` before any snapshot is published.
+
 ## 6. Background knowledge
 
 A group of 15 is not automatically anonymous if the university already knows who is in it: who contacted the International Office, who received a CAK letter, who lives in a certain municipality, who has a certain immigration requirement. This is why Tier 1 reports carry no region, municipality, campus or deadline dimensions, and why those stay in Tier 2.

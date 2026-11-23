@@ -42,18 +42,48 @@ create table if not exists nl.ingest_rate_limits (
 
 alter table nl.ingest_rate_limits enable row level security;
 
--- Gateway secret: when a row exists, ingest RPCs only accept requests whose
--- x-nl-ingest-secret header (forwarded by the edge function) hashes to it.
--- This closes the direct /rest/v1/rpc path that the public anon key would
--- otherwise open around the edge function and Nginx per-IP limits.
--- Set in production with:
---   insert into nl.ingest_gateway (secret_sha256)
---   values (encode(sha256(convert_to('<NL_INGEST_SECRET>', 'UTF8')), 'hex'));
+-- Gateway secret: when at least one row exists, ingest RPCs only accept requests whose
+-- x-nl-ingest-secret header (forwarded by the edge function) hashes to one of the rows.
+-- This closes the direct /rest/v1/rpc path that the public anon key would otherwise
+-- open around the edge function and Nginx per-IP limits.
+-- Up to two hashes may be active, so the secret can be rotated without an outage:
+--   1. insert into nl.ingest_gateway (secret_sha256)
+--        values (encode(sha256(convert_to('<NEW NL_INGEST_SECRET>', 'UTF8')), 'hex'));
+--   2. deploy the new NL_INGEST_SECRET to the edge function;
+--   3. delete from nl.ingest_gateway where secret_sha256 = '<old hash>';
 create table if not exists nl.ingest_gateway (
-  id            boolean primary key default true check (id),
-  secret_sha256 text not null check (secret_sha256 ~ '^[0-9a-f]{64}$')
+  secret_sha256 text primary key check (secret_sha256 ~ '^[0-9a-f]{64}$'),
+  added_at      timestamptz not null default now()
 );
+-- Upgrade the earlier single-row layout (id boolean primary key) in place.
+do $up$
+begin
+  if exists (select 1 from information_schema.columns
+              where table_schema = 'nl' and table_name = 'ingest_gateway' and column_name = 'id') then
+    alter table nl.ingest_gateway drop constraint if exists ingest_gateway_pkey;
+    alter table nl.ingest_gateway drop column id;
+    alter table nl.ingest_gateway add primary key (secret_sha256);
+    alter table nl.ingest_gateway add column if not exists added_at timestamptz not null default now();
+  end if;
+end
+$up$;
 alter table nl.ingest_gateway enable row level security;
+
+create or replace function nl.limit_ingest_gateway()
+returns trigger
+language plpgsql
+as $fn$
+begin
+  if (select count(*) from nl.ingest_gateway) >= 2 then
+    raise exception 'at most two ingest gateway secrets may be active (rotate: add, deploy, delete old)'
+      using errcode = '23514';
+  end if;
+  return new;
+end;
+$fn$;
+drop trigger if exists limit_ingest_gateway on nl.ingest_gateway;
+create trigger limit_ingest_gateway before insert on nl.ingest_gateway
+  for each row execute function nl.limit_ingest_gateway();
 
 create or replace function nl.check_ingest_gateway()
 returns void
@@ -63,16 +93,15 @@ security definer
 set search_path = nl, pg_temp
 as $fn$
 declare
-  v_expected text;
   v_supplied text;
 begin
-  select secret_sha256 into v_expected from nl.ingest_gateway where id;
-  if v_expected is null then
+  if not exists (select 1 from nl.ingest_gateway) then
     return;  -- not configured (local/dev); production must configure it (see RELEASE_CHECKLIST.md)
   end if;
   v_supplied := coalesce(
     nullif(current_setting('request.headers', true), '')::jsonb ->> 'x-nl-ingest-secret', '');
-  if encode(pg_catalog.sha256(convert_to(v_supplied, 'UTF8')), 'hex') <> v_expected then
+  if not exists (select 1 from nl.ingest_gateway
+                  where secret_sha256 = encode(pg_catalog.sha256(convert_to(v_supplied, 'UTF8')), 'hex')) then
     raise exception 'direct_access_forbidden' using errcode = '42501';
   end if;
 end;
@@ -329,6 +358,7 @@ revoke all on function nl.release_json(bigint) from public;
 revoke all on function nl.stats_json() from public;
 revoke all on function nl.check_ingest_rate_limit(smallint, integer, integer) from public;
 revoke all on function nl.check_ingest_gateway() from public;
+revoke all on function nl.limit_ingest_gateway() from public;
 revoke all on function nl.payload_event_count(jsonb) from public;
 revoke all on function nl.ingest_t1(jsonb) from public;
 revoke all on function nl.ingest_t2(jsonb) from public;
