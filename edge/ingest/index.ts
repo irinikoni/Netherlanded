@@ -189,7 +189,9 @@ Deno.serve(async (req: Request) => {
   if (resp.status === 429 || (errJson?.code === "P0001" && errJson?.message === "rate_limit_exceeded")) {
     return new Response(null, { status: 429, headers: securityHeaders(origin, false) });
   }
-  if (resp.status === 400 && (errJson?.code === "22023" || errJson?.code === "22P02")) {
+  // Any other 400 from PostgREST is a malformed payload (SQLSTATE class 22: invalid JSON escapes,
+  // casts, our own 22023 validation), never an upstream failure.
+  if (resp.status === 400) {
     return new Response(JSON.stringify({ error: "invalid_payload" }), { status: 400, headers });
   }
   return new Response(JSON.stringify({ error: "upstream_error" }), { status: 502, headers });

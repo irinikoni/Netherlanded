@@ -47,7 +47,7 @@
 - [ ] Add the Vault secrets `project_url` and `cron_secret` in both projects.
 - [ ] Generate the push keys (`infra/tools/vapid.ts`) and set them as function secrets.
 - [ ] Create the e-mail provider account, verify the sending domain, set the API key.
-- [ ] Deploy the three Edge Functions (`ingest`, `send-notifications`, `publish-content`) with `--no-verify-jwt`. Set `ALLOWED_ORIGINS` to the real site address.
+- [ ] Deploy the three Edge Functions `ingest`, `stats` and `editor` (the earlier names `send-notifications` / `publish-content` no longer exist). Deploy **`ingest` with `--no-verify-jwt`** (students have no token; nginx sends none), and keep JWT verification **on** for `stats` and `editor`, whose callers always send a staff token. Set `ALLOWED_ORIGINS`, `NL_PROXY_SECRET` and `NL_INGEST_SECRET` on all three.
 - [ ] Add the GitHub secrets the deploy workflows need and run both workflows once.
 - [ ] Check the scheduled jobs exist and run each one by hand once.
 - [ ] **Verify on Supabase** that the `postgres` role may switch to `nl_sender`, `nl_publisher` and `insights_ingest`. This is untested; the local test only proves it on plain PostgreSQL.

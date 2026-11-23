@@ -328,6 +328,30 @@ begin
 end;
 $fn$;
 
+-- Strict YYYY-MM-DD parsing: malformed or out-of-range dates become a clear 22023 validation
+-- error instead of 22007/22008/22009 (found by tools/pentest/rpc_fuzz.py).
+create or replace function nl_content._parse_date(p_value text, p_field text)
+returns date
+language plpgsql
+immutable
+as $fn$
+declare
+  v text := nullif(trim(p_value), '');
+begin
+  if v is null then
+    return null;
+  end if;
+  if v !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' then
+    raise exception '% must be a date in YYYY-MM-DD format', p_field using errcode = '22023';
+  end if;
+  begin
+    return v::date;
+  exception when others then
+    raise exception '% is not a valid date', p_field using errcode = '22023';
+  end;
+end;
+$fn$;
+
 create or replace function nl_content._validate_links(p_links jsonb)
 returns jsonb
 language plpgsql
@@ -575,7 +599,7 @@ begin
   v_accepting  := nullif(trim(p_payload ->> 'accepting_students'), '');
   v_step_id    := nullif(trim(p_payload ->> 'related_step_id'), '');
   v_source_id  := nullif(trim(p_payload ->> 'source_id'), '');
-  v_verified   := coalesce(nullif(trim(p_payload ->> 'last_verified'), '')::date, current_date);
+  v_verified   := coalesce(nl_content._parse_date(p_payload ->> 'last_verified', 'last_verified'), current_date);
   if v_verified > current_date then
     raise exception 'last_verified cannot be in the future' using errcode = '22023';
   end if;
@@ -702,7 +726,7 @@ begin
   v_for_inst := coalesce(nullif(trim(p_payload ->> 'for_institution_id'), ''), '');
   v_body     := nullif(trim(p_payload ->> 'body'), '');
   v_links    := nl_content._validate_links(p_payload -> 'links');
-  v_verified := coalesce(nullif(trim(p_payload ->> 'last_verified'), '')::date, current_date);
+  v_verified := coalesce(nl_content._parse_date(p_payload ->> 'last_verified', 'last_verified'), current_date);
   if v_verified > current_date then
     raise exception 'last_verified cannot be in the future' using errcode = '22023';
   end if;
@@ -797,8 +821,8 @@ begin
   v_unit       := nullif(trim(p_payload ->> 'unit'), '');
   v_source_id  := nullif(trim(p_payload ->> 'source_id'), '');
   v_step_id    := nullif(trim(p_payload ->> 'step_id'), '');
-  v_valid_from := coalesce(nullif(trim(p_payload ->> 'valid_from'), '')::date, current_date);
-  v_verified   := coalesce(nullif(trim(p_payload ->> 'last_verified'), '')::date, current_date);
+  v_valid_from := coalesce(nl_content._parse_date(p_payload ->> 'valid_from', 'valid_from'), current_date);
+  v_verified   := coalesce(nl_content._parse_date(p_payload ->> 'last_verified', 'last_verified'), current_date);
   if v_verified > current_date then
     raise exception 'last_verified cannot be in the future' using errcode = '22023';
   end if;
