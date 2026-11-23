@@ -123,7 +123,8 @@ sqlt = read_text('db/test_sql.sql')
 check('001 defines fold_run partial indexes and published_cell_history_idx',
       'raw_t1_fold_run_idx' in sql1 and 'raw_t2_fold_run_idx' in sql1 and 'published_cell_history_idx' in sql1)
 
-check("003 fixes infinite sticky loop (not in ('floor', 'sticky'))", "not in ('floor', 'sticky')" in sql3)
+check("003 carry-forward replaces delta/sticky (no sticky livelock; small changes republish the previous value)",
+      "carried = true" in sql3 and "between 1 and 4" in sql3 and "set reason = 'sticky'" not in sql3 and "set reason = 'delta'" not in sql3)
 check('003 enforces 15-student contributor floor via t1_cohort & t2_base', 'nl.t1_cohort' in sql3 and 'nl.t2_base' in sql3)
 check('003 tracks both v_hit_row and v_hit_col in complementary loop', 'v_hit_row' in sql3 and 'v_hit_col' in sql3)
 check('004 checks raw_t1 (24h) & raw_t2 (48h) in nl.health() and schedules monthly release', "interval '24 hours'" in sql4 and "interval '48 hours'" in sql4 and 'nl.raw_t2' in sql4 and 'monthly' in sql4)

@@ -296,4 +296,13 @@ alter table nl.accumulated_cell add column if not exists denom_key integer not n
 alter table nl.t2_base add column if not exists joined_key  integer not null default 0;
 alter table nl.t2_base add column if not exists arrived_key integer not null default 0;
 
+-- Carry-forward (§5): the true counts behind each published value, kept internally (never
+-- returned to readers) so the next release can tell whether fewer than 5 contributions changed.
+alter table nl.stage_cell add column if not exists num_basis   bigint;
+alter table nl.stage_cell add column if not exists denom_basis bigint;
+alter table nl.stage_cell add column if not exists carried     boolean not null default false;
+alter table nl.published_cell add column if not exists num_true   bigint;
+alter table nl.published_cell add column if not exists denom_true bigint;
+alter table nl.published_cell add column if not exists carried    boolean not null default false;
+
 commit;

@@ -9,7 +9,7 @@ This package implements a technical and legal direction. It is not legal clearan
 
 - **Server-side disclosure control & retention (`db/001_schema.sql`–`db/005_content_editor_security_fix.sql`):**
   - Separate `nl.raw_t1` and `nl.raw_t2` stores with hard rejection of any identity fields (`22023`).
-  - Hourly fold (`nl.accumulate()`), 6-rule suppression (`nl.build_stage()`: floor ≥ 15, round-to-5, `< 5`pp delta, 2-release sticky, 2D complementary suppression, over-suppression sweep), and transactional pre-publish safety audit (`nl.assert_release_safe()`).
+  - Hourly fold (`nl.accumulate()`), 6-rule suppression (`nl.build_stage()`: floor ≥ 15, cell-key noise, round-to-5, carry-forward of changes under 5 contributions, 2D complementary suppression, over-suppression sweep), and transactional pre-publish safety audit (`nl.assert_release_safe()`).
   - Enforced retention (`db/004_retention.sql`): raw rows purged 1 hour after fold (48-hour hard ceiling), staging 90 days, published snapshots 3 years, unmapped dictionary 400 days.
   - Shared-city content editor privilege fix (`db/005_content_editor_security_fix.sql`).
 

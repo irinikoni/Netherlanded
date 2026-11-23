@@ -268,33 +268,50 @@ def main():
                 pub_cnt = conn.execute("select count(*) from nl.published_cell where snapshot_id = %s and table_id = 't1_inst_category'", (s2,)).fetchone()[0]
                 check('regression: unchanged 10/15 cell stays published on release 2 (no precision delta)', pub_cnt == 2, f'pub_cnt={pub_cnt}')
 
-                # R2: Sticky suppression expires after 2 releases (no infinite sticky loop)
-                # Move housing +6pp (10/15=66.7% -> 14/18=77.8%)? First suppress by <5pp delta (11/16=68.8% -> 'delta' on R3),
-                # then move >=5pp from R2's 66.7% (to 15/18=83.3%) before R4 -> R4 & R5 stay 'sticky' (2 releases), and R6 recovers!
+                # R2: carry-forward. A change of fewer than 5 contributions republishes the previous
+                # value unchanged (DISCLOSURE_CONTROL.md §5); 5 or more publishes fresh.
+                def housing_row(snap):
+                    return conn.execute("select num, denom, rate, band, carried from nl.published_cell where snapshot_id=%s "
+                                        "and table_id='t1_inst_category' and row_key='thuas:housing'", (snap,)).fetchone()
+                base = housing_row(s2)
                 ingest_t1_chunked(conn, [
-                    {'institution': 'thuas', 'intake': '2026-sep', 'event': 'cohort_joined', 'app_version': '3b32b5914fb6bdfc'},
                     {'institution': 'thuas', 'intake': '2026-sep', 'event': 'step_applies', 'category': 'housing', 'app_version': '3b32b5914fb6bdfc'},
                     {'institution': 'thuas', 'intake': '2026-sep', 'event': 'step_completed', 'category': 'housing', 'app_version': '3b32b5914fb6bdfc'},
                 ])
                 conn.execute('select nl.accumulate()')
-                s3 = conn.execute("select nl.publish_snapshot('delta-r3')").fetchone()[0]
-                r3 = conn.execute("select reason::text from nl.suppressed_cell where snapshot_id=%s and table_id='t1_inst_category' and row_key='thuas:housing'", (s3,)).fetchone()
-                # R4 must be a real move of >= 5 people (11/16 -> 25/28): the delta rule now
-                # withholds any change smaller than max(5pp, 5/denom), i.e. fewer than ~5 people.
-                ingest_t1_chunked(conn,
-                    [{'institution': 'thuas', 'intake': '2026-sep', 'event': 'step_applies', 'category': 'housing', 'app_version': '3b32b5914fb6bdfc'} for _ in range(12)]
-                    + [{'institution': 'thuas', 'intake': '2026-sep', 'event': 'step_completed', 'category': 'housing', 'app_version': '3b32b5914fb6bdfc'} for _ in range(14)]
-                )
+                s3 = conn.execute("select nl.publish_snapshot('carry-r3')").fetchone()[0]
+                r3 = housing_row(s3)
+                check('regression: +1 contribution republishes the previous housing value (carried, not withheld)',
+                      r3 is not None and r3[:4] == base[:4] and r3[4] is True, f'base={base}, r3={r3}')
+                ingest_t1_chunked(conn, [{'institution': 'thuas', 'intake': '2026-sep', 'event': 'step_applies', 'category': 'housing', 'app_version': '3b32b5914fb6bdfc'}] * 2)
                 conn.execute('select nl.accumulate()')
-                s4 = conn.execute("select nl.publish_snapshot('sticky-r4')").fetchone()[0]
-                r4 = conn.execute("select reason::text from nl.suppressed_cell where snapshot_id=%s and table_id='t1_inst_category' and row_key='thuas:housing'", (s4,)).fetchone()
-                s5 = conn.execute("select nl.publish_snapshot('sticky-r5')").fetchone()[0]
-                r5 = conn.execute("select reason::text from nl.suppressed_cell where snapshot_id=%s and table_id='t1_inst_category' and row_key='thuas:housing'", (s5,)).fetchone()
-                s6 = conn.execute("select nl.publish_snapshot('recover-r6')").fetchone()[0]
-                r6_pub = conn.execute("select count(*) from nl.published_cell where snapshot_id=%s and table_id='t1_inst_category' and row_key='thuas:housing'", (s6,)).fetchone()[0]
-                check('regression: sticky suppression lasts 2 releases and recovers (no infinite loop)',
-                      r3 == ('delta',) and r4 == ('sticky',) and r5 == ('sticky',) and r6_pub == 1,
-                      f'r3={r3}, r4={r4}, r5={r5}, r6_pub={r6_pub}')
+                s4 = conn.execute("select nl.publish_snapshot('carry-r4')").fetchone()[0]
+                basis4 = conn.execute("select num_true, denom_true from nl.published_cell where snapshot_id=%s and table_id='t1_inst_category' "
+                                      "and row_key='thuas:housing'", (s4,)).fetchone()
+                check('regression: small changes accumulate against the carried basis (3 total -> still carried, basis 10/15)',
+                      housing_row(s4)[4] is True and basis4 == (10, 15), f'basis={basis4}')
+                ingest_t1_chunked(conn, [{'institution': 'thuas', 'intake': '2026-sep', 'event': 'step_applies', 'category': 'housing', 'app_version': '3b32b5914fb6bdfc'}] * 2)
+                conn.execute('select nl.accumulate()')
+                s5 = conn.execute("select nl.publish_snapshot('carry-r5')").fetchone()[0]
+                r5 = housing_row(s5)
+                check('regression: 5 accumulated contributions publish fresh (11/20)',
+                      r5 is not None and r5[4] is False and (r5[0], r5[1]) == (10, 20), f'r5={r5}')
+
+                # R2b: livelock regression. The retired sticky rule cycled two cells of one column through
+                # complementary/sticky forever once the small one passed the floor.
+                reset_data(conn)
+                ingest_t1_chunked(conn, [{'institution': 'thuas', 'intake': '2026-sep', 'event': 'cohort_joined', 'app_version': '3b32b5914fb6bdfc'}] * 20
+                                  + [{'institution': 'thuas', 'intake': '2026-sep', 'event': 'step_applies', 'category': 'housing', 'app_version': '3b32b5914fb6bdfc'}] * 20
+                                  + [{'institution': 'thuas', 'intake': '2026-sep', 'event': 'step_applies', 'category': 'money', 'app_version': '3b32b5914fb6bdfc'}] * 10)
+                conn.execute('select nl.accumulate()')
+                l1 = conn.execute("select nl.publish_snapshot('livelock-1')").fetchone()[0]
+                ingest_t1_chunked(conn, [{'institution': 'thuas', 'intake': '2026-sep', 'event': 'step_applies', 'category': 'money', 'app_version': '3b32b5914fb6bdfc'}] * 10)
+                conn.execute('select nl.accumulate()')
+                l2 = conn.execute("select nl.publish_snapshot('livelock-2')").fetchone()[0]
+                withheld1 = conn.execute("select count(*) from nl.suppressed_cell where snapshot_id=%s and table_id='t1_inst_category'", (l1,)).fetchone()[0]
+                published2 = conn.execute("select count(*) from nl.published_cell where snapshot_id=%s and table_id='t1_inst_category'", (l2,)).fetchone()[0]
+                check('regression: once the small cell passes the floor, both cells publish (no sticky livelock)',
+                      withheld1 == 2 and published2 == 2, f'withheld1={withheld1}, published2={published2}')
 
                 # R3: 15-student contributor floor blocks 3 students emitting 15 health step_applies
                 reset_data(conn)

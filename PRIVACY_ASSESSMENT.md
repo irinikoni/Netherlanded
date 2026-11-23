@@ -33,7 +33,7 @@ None of these stops the prototype. All open governance and deployment items must
 | `ingest_t1` / `ingest_t2` functions | Validate shape, reject any identity fields (`22023`), and write to separate `nl.raw_t1` / `nl.raw_t2` tables. Stores and logs nothing about the request | The function adds nothing |
 | Hosting gateway (e.g. Supabase) | Logs the request in front of our code (up to 7 days on Supabase Pro; production target: strip IP at edge, ≤ 24h logs) | **Yes: IP address** |
 | Hourly fold & retention (`db/003` & `db/004`) | Folds raw events into aggregate cells and deletes raw rows 1 hour after folding (48-hour hard ceiling) | No, once aggregated and purged |
-| Release function & dashboard (`db/003_release.sql` & `web/stats.js`) | Approved snapshot applying floor ≥ 15, round-to-5, `< 5`pp delta suppression, 2-release sticky suppression, 2D complementary suppression, and pre-publish audit | Intended to be anonymous once release control is enforced (per-institution RLS/scoping still to be added before multi-university deployment) |
+| Release function & dashboard (`db/003_release.sql` & `web/stats.js`) | Approved snapshot applying floor ≥ 15, cell-key noise, round-to-5, carry-forward of changes under 5 contributions, 2D complementary suppression, and pre-publish audit | Intended to be anonymous once release control is enforced (per-institution RLS/scoping still to be added before multi-university deployment) |
 
 ## 3. Findings
 
@@ -58,7 +58,7 @@ None of these stops the prototype. All open governance and deployment items must
 
 ### 3.4 Raw counters are finer than the dashboard (resolved in design & SQL)
 - Earlier `ingest` created weekly cohort rows of any size while views hid groups under 10.
-- **Resolved in v2.0/v2.1:** cohorts use intake semesters (`YYYY-sep` / `YYYY-feb`), raw events are folded hourly and purged within 48 hours (`db/004_retention.sql`), and `db/003_release.sql` enforces the 15-person floor, rounding to multiples of 5, `< 5`pp delta suppression, 2-release sticky suppression, and 2D complementary suppression.
+- **Resolved in v2.0/v2.1:** cohorts use intake semesters (`YYYY-sep` / `YYYY-feb`), raw events are folded hourly and purged within 48 hours (`db/004_retention.sql`), and `db/003_release.sql` enforces the 15-person floor, cell-key noise, rounding to multiples of 5, carry-forward of changes under 5 contributions, and 2D complementary suppression.
 - Good: no timestamps are stored with counters, and client batches are shuffled and flushed weekly to reduce timing correlation with host logs.
 
 ### 3.5 Legitimate interest needs a written test

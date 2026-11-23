@@ -131,32 +131,23 @@ def suppress(cells, previous_published=None, previous_suppressed=None):
             c['rate'] = round_rate(c['num_pub'], c['denom_pub'])
             c['band'] = rate_band(c['num_pub'], c['denom_pub'])
 
-    # 3. delta against the last published release (rounded & clamped to 5dp like SQL numeric(7,5))
+    # 3. carry-forward: fewer than 5 contributions changed since the counts behind the cell's
+    #    most recent published value -> republish that value unchanged (mirrors nl.build_stage()).
+    #    previous_published maps (table_id, row, col) -> {'num', 'denom', 'rate', 'band',
+    #    'num_true', 'denom_true'}. Entries without true counts cannot be compared and are ignored.
+    #    The former 'delta' and 'sticky' rules are retired; previous_suppressed is accepted for
+    #    compatibility and ignored.
     for c in stage:
-        if c['reason'] is not None or c['denom_true'] <= 0:
+        if c['reason'] is not None:
             continue
-        prev = _previous_rate(previous_published, _cell_key(c))
-        if prev is None:
+        prev = (previous_published or {}).get(_cell_key(c))
+        if not isinstance(prev, dict) or prev.get('num_true') is None or prev.get('denom_true') is None:
             continue
-        true_rate = (Decimal(c['num_true']) / Decimal(c['denom_true'])).quantize(Decimal('0.00001'), rounding=ROUND_HALF_UP)
-        true_rate = max(Decimal('0.00000'), min(Decimal('1.00000'), true_rate))
-        diff = abs(true_rate - prev)
-        threshold = max(DELTA_MIN, Decimal(ROUND_TO) / Decimal(c['denom_true']))
-        if Decimal('0') < diff < threshold:
-            c['reason'] = 'delta'
-            c['rate'] = None
-            c['band'] = None
-
-    # 4. sticky: withheld in either of the previous two releases for any reason other than floor or sticky
-    sticky_keys = set()
-    for r in (previous_suppressed or []):
-        if r.get('reason') not in ('floor', 'sticky'):
-            sticky_keys.add((r['table_id'], r['row'], r['col']))
-    for c in stage:
-        if c['reason'] is None and _cell_key(c) in sticky_keys:
-            c['reason'] = 'sticky'
-            c['rate'] = None
-            c['band'] = None
+        moved = max(abs(c['num_true'] - int(prev['num_true'])), abs(c['denom_true'] - int(prev['denom_true'])))
+        if 1 <= moved <= 4:
+            c['num_pub'], c['denom_pub'] = int(prev['num']), int(prev['denom'])
+            c['rate'], c['band'] = prev['rate'], prev['band']
+            c['carried'] = True
 
     # 5. complementary: never leave a lone published cell in any row or scoped column
     for _ in range(MAX_COMPLEMENT_PASSES):

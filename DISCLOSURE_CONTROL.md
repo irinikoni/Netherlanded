@@ -61,7 +61,7 @@ Floors and rounding alone cannot stop an **n-1 flooding attack**. Ingest is anon
 - **Effect on the attack:** the attacker's best guess about the real student drops from certainty to **55.6 %**, against 50 % for a coin flip (measured over 1,000 trials per case; the theoretical value is 0.5 + 1/18).
 - **Consistency:** an unchanged cell always gets the same noise, so republishing it cannot be averaged away.
 - **Accuracy cost:** published counts stay within 6 of the truth (noise 4 + rounding 2). Rates on denominators of 100 or more move by a few points at most. Small cells were already shown only as bands or ranges.
-- **Residual risk:** an attacker who keeps changing the cell (adding new fake events before each monthly snapshot) gets a fresh noise draw each time and can, in principle, average over many releases. The monthly cadence, the delta and sticky rules (a change of fewer than ~5 people is withheld for three releases), gateway-only ingest and per-IP limits make this slow and visible. The DPIA must state it.
+- **Residual risk:** an attacker who keeps changing the cell (adding new fake events before each monthly snapshot) gets a fresh noise draw each time and can, in principle, average over many releases. The monthly cadence, carry-forward (a change resting on fewer than 5 contributions shows the previous value, §5), gateway-only ingest and per-IP limits make this slow and visible. The DPIA must state it.
 
 ## 4. Complementary suppression
 
@@ -76,6 +76,9 @@ This will suppress many pilot results. **Documented alternative**, only after a 
 - No live dashboards. Snapshots are made **monthly**. Fortnightly is acceptable only for cohorts above 50.
 - No daily or weekly history. Compare only whole intake semesters with each other.
 - Suppress an updated value if it rests on **fewer than 5** new contributions since the previous snapshot. Show the previous value instead.
+  - *Implemented as carry-forward* in `nl.build_stage()`: the true counts behind each published value are kept internally (`published_cell.num_true` / `denom_true`). If either count has moved by 1–4 since then, the previous published value is republished exactly, so nothing observable changes. A carried cell is not withheld, because a cell that disappears would itself signal a change. Small changes accumulate against the carried basis and publish once they reach 5.
+  - *Contributions are events.* One student can add several events to one cell (a category has several steps), so "5 contributions" is not "5 people". Per-person inference for multi-event cells is bounded by cell-key noise (§3a).
+  - *Verified* by `tools/pentest/sdc_attacks.py` attack B: adding 1–4 contributions between releases is visible in 0 of 40 rounds, against 20 of 20 with the former rate-based delta rule.
 - Round percentages to whole points; for denominators under 50, round to the nearest 5.
 
 ### Known limitation: contributor counts are self-reported
@@ -137,7 +140,7 @@ The schedule must also state plainly that **cells failing the disclosure-control
 
 ## 9. Build list
 
-- [x] `nl.accumulate()`, `nl.build_stage()`, `nl.assert_release_safe()`, `nl.publish_snapshot()`, and `nl.release_json()` implemented in [`db/003_release.sql`](db/003_release.sql) (15-person floor, secret cell-key perturbation of −4…+4 (§3a), unbiased rounding to the **nearest** 5, delta suppression below `max(5pp, 5/denominator)` so a change resting on fewer than ~5 people is never published, 2-release sticky suppression, 2D complementary suppression plus secondary suppression of a lone withheld cell in an institution-scoped column, and withheld bucket reporting for pooled readers only).
+- [x] `nl.accumulate()`, `nl.build_stage()`, `nl.assert_release_safe()`, `nl.publish_snapshot()`, and `nl.release_json()` implemented in [`db/003_release.sql`](db/003_release.sql) (15-person floor, secret cell-key perturbation of −4…+4 (§3a), unbiased rounding to the **nearest** 5, carry-forward: a change resting on fewer than 5 contributions republishes the previous value (§5), replacing the former rate-based delta rule and the 2-release sticky rule, which could livelock two cells into permanent suppression, 2D complementary suppression plus secondary suppression of a lone withheld cell in an institution-scoped column, and withheld bucket reporting for pooled readers only).
 - [x] Separate Tier 1 (`nl.ingest_t1` / `nl.raw_t1`) and Tier 2 (`nl.ingest_t2` / `nl.raw_t2`) endpoints and tables in [`db/001_schema.sql`](db/001_schema.sql) and [`db/002_ingest.sql`](db/002_ingest.sql).
 - [x] Per-institution tenant scoping, RLS, tail redaction, and `split_part` isolation implemented in [`db/006_security_rls_and_scoping.sql`](db/006_security_rls_and_scoping.sql) and [`db/008_scoped_insights.sql`](db/008_scoped_insights.sql).
 - [x] Edge IP/UA stripping in RAM, ≤ 24h IP-free logs, per-IP `30r/m` rate limiting, and `X-NL-Proxy-Secret` bypass protection configured in [`edge/security-headers.conf`](edge/security-headers.conf) and [`edge/*`](edge/ingest/index.ts); Tier 1 raw purge tightened to **24h** in [`db/004_retention.sql`](db/004_retention.sql).

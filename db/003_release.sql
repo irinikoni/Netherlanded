@@ -157,7 +157,6 @@ volatile
 as $fn$
 declare
   v_prev1   bigint;
-  v_prev2   bigint;
   v_hit_row integer := 0;
   v_hit_col integer := 0;
   v_hit_sec integer := 0;
@@ -169,11 +168,12 @@ begin
   delete from nl.stage_cell;
 
   insert into nl.stage_cell (table_id, row_key, col_key, num_true, denom_true,
-                             num_pub, denom_pub)
+                             num_pub, denom_pub, num_basis, denom_basis)
   select table_id, row_key, col_key, num, denom,
          least(greatest(0, round((num + nl.cell_noise(num_key)) / 5.0) * 5),
                greatest(15, round((denom + nl.cell_noise(denom_key)) / 5.0) * 5))::bigint,
-         greatest(15, round((denom + nl.cell_noise(denom_key)) / 5.0) * 5)::bigint
+         greatest(15, round((denom + nl.cell_noise(denom_key)) / 5.0) * 5)::bigint,
+         num, denom
     from nl.accumulated_cell;
 
   -- 1. floor: fewer than fifteen true respondents (or < 15 distinct student contributors) is never published
@@ -235,17 +235,21 @@ begin
   select snapshot_id into v_prev1
     from nl.snapshot where published
    order by snapshot_id desc limit 1;
-  select snapshot_id into v_prev2
-    from nl.snapshot where published
-   order by snapshot_id desc offset 1 limit 1;
 
-  -- 3. delta: a move under max(5 points, 5/denom) against the cell's most recent published release
-  --    (so on small cells a change of fewer than ~5 people is never published)
+  -- 3. carry-forward (DISCLOSURE_CONTROL.md §5): if a cell's true counts moved by fewer than
+  --    5 contributions since the counts behind its most recent published value, republish that
+  --    previous value unchanged. Nothing observable changes, so small changes cannot be
+  --    differenced, and the cell is not withheld (a withheld cell would itself signal a change).
+  --    The basis counts are carried too, so many small monthly changes add up and are published
+  --    once they reach 5. This replaces the former rate-based 'delta' rule and the 'sticky' rule;
+  --    sticky could livelock two cells of one column into permanent suppression, and cell-key
+  --    noise (±6 per published cell) now covers the subtraction risk sticky was guarding.
   if v_prev1 is not null then
     update nl.stage_cell s
-       set reason = 'delta', rate = null, band = null
+       set num_pub = p.num, denom_pub = p.denom, rate = p.rate, band = p.band,
+           num_basis = p.num_true, denom_basis = p.denom_true, carried = true
       from (select distinct on (p.table_id, p.row_key, p.col_key)
-                   p.table_id, p.row_key, p.col_key, p.rate_true
+                   p.table_id, p.row_key, p.col_key, p.num, p.denom, p.rate, p.band, p.num_true, p.denom_true
               from nl.published_cell p
               join nl.snapshot sn on sn.snapshot_id = p.snapshot_id and sn.published
              order by p.table_id, p.row_key, p.col_key, p.snapshot_id desc) p
@@ -253,21 +257,8 @@ begin
        and p.row_key = s.row_key
        and p.col_key = s.col_key
        and s.reason is null
-       and abs(least(1.00000, greatest(0.00000, round(s.num_true::numeric / s.denom_true, 5))) - p.rate_true) > 0
-       and abs(least(1.00000, greatest(0.00000, round(s.num_true::numeric / s.denom_true, 5))) - p.rate_true)
-           < greatest(0.05, 5.0 / s.denom_true);
-
-    -- 4. sticky: stay withheld for two further releases (never re-triggering on prior 'sticky' or 'floor')
-    update nl.stage_cell s
-       set reason = 'sticky', rate = null, band = null
-      where s.reason is null
-        and exists (select 1
-                      from nl.suppressed_cell x
-                     where x.snapshot_id in (v_prev1, coalesce(v_prev2, v_prev1))
-                       and x.reason not in ('floor', 'sticky')
-                       and x.table_id = s.table_id
-                       and x.row_key = s.row_key
-                       and x.col_key = s.col_key);
+       and p.num_true is not null
+       and greatest(abs(s.num_true - p.num_true), abs(s.denom_true - p.denom_true)) between 1 and 4;
   end if;
 
   -- 5. complementary: never leave exactly one published cell in a row or institution-scoped column
@@ -496,9 +487,10 @@ begin
   returning snapshot_id into v_snap;
 
   insert into nl.published_cell (snapshot_id, table_id, row_key, col_key,
-                                 num, denom, rate, rate_true, band)
+                                 num, denom, rate, rate_true, band, num_true, denom_true, carried)
   select v_snap, table_id, row_key, col_key, num_pub, denom_pub, rate,
-         least(1.00000, greatest(0.00000, round(num_true::numeric / denom_true, 5))), band
+         least(1.00000, greatest(0.00000, round(num_basis::numeric / denom_basis, 5))), band,
+         num_basis, denom_basis, carried
     from nl.stage_cell
    where reason is null;
 

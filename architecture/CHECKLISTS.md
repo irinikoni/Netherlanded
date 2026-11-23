@@ -23,7 +23,7 @@
 - [ ] Fill the placeholders in the policy: group name, contact e-mail, years totals are kept. (The 7-day log retention is filled in for Supabase Pro.)
 - [x] Write the one-page legitimate-interest test: drafted 18 Nov (`LEGITIMATE_INTEREST_ASSESSMENT.md`, policy 2.1).
 - [x] **Build the Tier 1 endpoint** (`NL_BASIC_URL`): built in `db/001_schema.sql`, `db/002_ingest.sql`, and `edge/ingest/index.ts` (`/api/t1` → `nl.ingest_t1_rpc`).
-- [x] **Build the release function** (`DISCLOSURE_CONTROL.md` section 9): built in `db/003_release.sql` and `db/008_scoped_insights.sql` with the 15-student floor, rounding to 5, tail capping (`<= 10.0%` / `>= 90.0%`), delta, sticky, and 2D complementary suppression, and tenant-scoped `nl.release_json_for_institution()`.
+- [x] **Build the release function** (`DISCLOSURE_CONTROL.md` section 9): built in `db/003_release.sql` and `db/008_scoped_insights.sql` with the 15-student floor, rounding to 5, tail capping (`<= 10.0%` / `>= 90.0%`), cell-key noise, carry-forward, and 2D complementary suppression, and tenant-scoped `nl.release_json_for_institution()`.
 - [ ] Get a privacy officer's view on whether Tier 1, including the university reports, fits the Telecommunicatiewet 11.7a analytics exception.
 - [ ] **Have the controller sign the legitimate-interest test**, and review it again if the counters, the recipients or the age limit change.
 - [ ] Write a short data protection impact assessment screening note, even if the answer is "not required".
