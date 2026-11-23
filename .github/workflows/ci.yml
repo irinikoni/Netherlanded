@@ -36,7 +36,7 @@ jobs:
           deno test --allow-env --allow-read edge/tests/edge.test.ts
 
       - name: Install embedded PostgreSQL test runner, legal sync and attack-suite dependencies
-        run: pip install pgserver "psycopg[binary]" markdown scipy
+        run: pip install pgserver "psycopg[binary]" markdown scipy hypothesis
 
       - name: Check in-app legal text matches TERMS_AND_PRIVACY.md
         run: python3 tools/sync_legal.py --check
@@ -46,3 +46,16 @@ jobs:
 
       - name: Disclosure-control attack suite (reconstruction, differencing, benchmark subtraction)
         run: python3 tools/pentest/sdc_attacks.py 5
+
+      - name: Release performance at national scale (fails above 10 s)
+        run: python3 tools/pentest/scale_test.py
+
+      - name: Property-based fuzzing of the release pipeline and the public RPCs
+        run: |
+          python3 tools/pentest/release_fuzz.py 40
+          python3 tools/pentest/rpc_fuzz.py 200
+
+      - name: End-to-end gateway test (nginx -> edge functions -> database)
+        run: |
+          sudo apt-get install -y nginx
+          python3 tools/pentest/gateway_test.py

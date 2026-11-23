@@ -23,6 +23,9 @@ SUITES = {
     'ref': [PY, 'tools/test_suppression.py'],
     'build': [PY, 'tools/verify_build.py'],
     'deno': ['deno', 'test', '--allow-env', '--allow-read', 'edge/tests/edge.test.ts'],
+    'gw': [PY, 'tools/pentest/gateway_test.py'],
+    'browser': ['node', 'tools/pentest/browser_test.cjs'],
+    'fuzz': [PY, 'tools/pentest/rpc_fuzz.py', '300'],
 }
 
 # Mutants proven equivalent (behaviour unchanged, so no test can kill them); reported, not failed.
@@ -98,6 +101,20 @@ MUTATIONS = [
      'editor echoes only our own error messages'),
     ('M31', 'edge/editor/index.ts', "if (!PROXY_SECRET) return ALLOW_DIRECT_DEV;", "if (!PROXY_SECRET) return true;", False, ['deno'],
      'editor fails closed without NL_PROXY_SECRET'),
+    ('M33', 'edge/security-headers.conf', '        proxy_set_header Cookie "";\n', '', True, ['gw'],
+     'nginx strips client cookies before upstream'),
+    ('M34', 'edge/security-headers.conf', '    server_tokens off;\n', '', False, ['gw'],
+     'nginx does not disclose its version'),
+    ('M35', 'edge/security-headers.conf', '        proxy_set_header X-Forwarded-For "";\n', '', True, ['gw'],
+     'nginx strips X-Forwarded-For'),
+    ('M36', 'edge/ingest/index.ts', '  if (resp.status === 400) {', '  if (resp.status === 400 && errJson?.code === "22023") {', False, ['deno'],
+     'ingest maps every upstream 400 to invalid_payload'),
+    ('M37', 'db/009_content_editor.sql', "nl_content._parse_date(p_payload ->> 'last_verified', 'last_verified')",
+     "nullif(trim(p_payload ->> 'last_verified'), '')::date", True, ['pg'], 'editor dates validated with a clear 22023'),
+    ('M38', 'web/stats.js', '{ node.textContent = String(text); }', '{ node.innerHTML = String(text); }', False, ['browser'],
+     'dashboard renders API text as text'),
+    ('M39', 'web/editor.js', '{ el.textContent = String(text); }', '{ el.innerHTML = String(text); }', False, ['browser'],
+     'editor renders API text as text'),
     ('M32', 'tools/suppress_reference.py', "    return (k + NOISE_HALF_WIDTH) % (2 * NOISE_HALF_WIDTH + 1) - NOISE_HALF_WIDTH",
      "    return 0", False, ['ref'], 'reference model mirrors cell-key noise'),
 ]

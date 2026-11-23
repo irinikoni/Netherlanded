@@ -1065,6 +1065,12 @@ def main():
                 check('gap: step links must be https (22023)',
                       rejects('select nl_content.editor_upsert_step_local(%s::jsonb, %s)',
                               (json.dumps(dict(step, links=[{'url': 'http://example.org/', 'label': 'GP list'}])), 'gap test')))
+                for bad_date in ('44318707', '2026-13-45', '2026-02-30', '+1000-01-01'):
+                    ok_date = rejects('select nl_content.editor_upsert_step_local(%s::jsonb, %s)',
+                                      (json.dumps(dict(step, last_verified=bad_date)), 'gap test'))
+                    if not ok_date:
+                        break
+                check('gap: malformed or impossible dates give a clear 22023 validation error (not 22007/22008)', ok_date, f'last={bad_date}')
                 check('gap: link labels with markup are rejected (22023)',
                       rejects('select nl_content.editor_upsert_step_local(%s::jsonb, %s)',
                               (json.dumps(dict(step, links=[{'url': 'https://example.org/', 'label': '<img src=x onerror=alert(1)>'}])), 'gap test')))
