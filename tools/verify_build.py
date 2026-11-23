@@ -136,6 +136,10 @@ check('005 uses public, pg_temp search_path & revokes PUBLIC', 'set search_path 
 check('006 uses nl, pg_temp search_path & enables RLS on nl tables', 'set search_path = nl, pg_temp' in sql6 and sql6.count('enable row level security') >= 15)
 check('006 uses dynamic secret salt & pg_catalog.sha256 without pgcrypto', 'nl.rate_limit_secret' in sql6 and 'pg_catalog.sha256' in sql6 and 'pgcrypto' not in sql6.lower())
 check('006 sets global circuit-breaker limit (60000)', '60000' in sql6)
+check('006 ingest gateway fails closed when unconfigured (dev opt-in via nl.allow_direct_dev only)',
+      "raise exception 'ingest_gateway_not_configured' using errcode = '42501'" in sql6
+      and "coalesce(current_setting('nl.allow_direct_dev', true), '') = '1'" in sql6
+      and 'return;  -- not configured' not in sql6)
 check('008 uses split_part (no LIKE wildcard) & fail-closed role check', 'split_part(row_key' in sql8 and "like p_institution" not in sql8 and "v_app_role not in ('super_admin', 'reader', 'editor')" in sql8)
 check('008 redacts rate and band on tail-capped cells for non-pooled readers', 'or rate <= 0.10 or rate >= 0.90 then null' in sql8 and 'or rate <= 0.10 or rate >= 0.90 or denom < 50 then null' in sql8)
 
@@ -192,6 +196,20 @@ check('009_content_editor.sql has copyright, nl_content schema, RLS, search_path
 check('009_content_editor.sql seeds canonical tud/zuyd campuses, expands service_type, tightens URLs & returns campus_cities',
       "'community'" in sql9 and "'government'" in sql9 and "('tud', 'delft')" in sql9 and "('zuyd', 'heerlen')" in sql9 and "('tudelft', 'delft')" not in sql9 and "('wur', 'wageningen')" not in sql9 and "^https://[^\\s\"''<>\\\\]+$" in sql9 and "'campus_cities'" in sql9)
 
+def csp_directives(html):
+    m = re.search(r'<meta\s+http-equiv="Content-Security-Policy"\s+content="([^"]+)"', html, re.I)
+    out = {}
+    for part in (m.group(1) if m else '').split(';'):
+        words = part.split()
+        if words:
+            out[words[0].lower()] = words[1:]
+    return out
+
+
+for label, page in (('dashboard.html', dash_html), ('editor.html', ed_html)):
+    d = csp_directives(page)
+    check(f"{label} CSP limits connect-src to 'self' (no scheme-wide https: wildcard)", d.get('connect-src') == ["'self'"], str(d.get('connect-src')))
+
 # 5. Verify edge/ adapters & security headers
 edge_ingest = read_text('edge/ingest/index.ts')
 edge_stats = read_text('edge/stats/index.ts')
@@ -206,6 +224,11 @@ check('edge/editor uses readBodyLimited, fail-closed CORS, proxy secret, Bearer 
       'Copyright (c) 2026 Eirini Konidari' in edge_editor and 'readBodyLimited' in edge_editor and 'ALLOWED_ORIGINS.includes(origin)' in edge_editor and 'NL_PROXY_SECRET' in edge_editor and 'editor_list' in edge_editor and 'editor_publish_fact' in edge_editor)
 check('edge/security-headers.conf has rate limit, SNI, proxy secret header, /api/stats, /api/editor, and /sw.js scope header',
       'limit_req_zone' in edge_conf and 'proxy_ssl_server_name on' in edge_conf and 'X-NL-Proxy-Secret' in edge_conf and 'location = /api/stats' in edge_conf and 'location ~ ^/api/editor' in edge_conf and 'Service-Worker-Allowed' in edge_conf)
+check('edge/security-headers.conf verifies the upstream certificate (proxy_ssl_verify on, trusted CA, depth)',
+      re.search(r'^\s*proxy_ssl_verify on;', edge_conf, re.M) is not None
+      and re.search(r'^\s*proxy_ssl_trusted_certificate \S+;', edge_conf, re.M) is not None
+      and re.search(r'^\s*proxy_ssl_verify_depth \d+;', edge_conf, re.M) is not None
+      and re.search(r'^\s*proxy_ssl_verify off;', edge_conf, re.M) is None)
 for ftxt in (edge_ingest, edge_stats, edge_editor, edge_conf):
     check('edge sets frame-ancestors none & nosniff', "frame-ancestors 'none'" in ftxt and 'nosniff' in ftxt)
 

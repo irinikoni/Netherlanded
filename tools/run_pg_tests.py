@@ -56,6 +56,9 @@ def main():
         pg = pgserver.get_server(pgdata)
         uri = pg.get_uri()
         with psycopg.connect(uri, autocommit=True) as conn:
+            # Local test database: opt in to ungated ingest (db/006 fails closed without a gateway secret).
+            conn.execute("do $$ begin execute format('alter database %I set nl.allow_direct_dev = %L', current_database(), '1'); end $$; "
+                         "set nl.allow_direct_dev = '1'")
             ver = conn.execute('select version()').fetchone()[0]
             print(f'PostgreSQL booted: {ver}')
 
@@ -785,7 +788,16 @@ def main():
                 hr = conn.execute("select received_at = date_trunc('hour', received_at) from nl.raw_t1 order by id desc limit 1").fetchone()[0]
                 check('fix: raw received_at is stored hour-truncated', hr is True)
 
-                # gateway secret: enforced once configured
+                # gateway secret: fails closed when unconfigured, unless the database opted in to dev mode
+                conn.execute("select set_config('request.headers', '{}', true)")
+                for dev_value in ('0', '', 'true', ' 1'):
+                    conn.execute("select set_config('nl.allow_direct_dev', %s, true)", (dev_value,))
+                    check(f'fix: ingest refused with no gateway secret and nl.allow_direct_dev={dev_value!r} (fails closed)',
+                          rejects('select nl.ingest_t1_rpc(%s::jsonb)', (json.dumps(base1),), psycopg.errors.InsufficientPrivilege))
+                conn.execute("select set_config('nl.allow_direct_dev', '1', true)")
+                check('fix: dev mode (nl.allow_direct_dev=1) accepts ingest while no gateway secret is configured',
+                      conn.execute('select nl.ingest_t1_rpc(%s::jsonb)', (json.dumps(base1),)).fetchone()[0] == 1)
+                # gateway secret: enforced once configured, even in dev mode
                 conn.execute("insert into nl.ingest_gateway (secret_sha256) values (encode(sha256(convert_to('s3cret', 'UTF8')), 'hex'))")
                 conn.execute("select set_config('request.headers', '{}', true)")
                 check('fix: ingest without gateway header is refused once configured',

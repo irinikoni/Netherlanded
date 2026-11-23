@@ -42,8 +42,9 @@ create table if not exists nl.ingest_rate_limits (
 
 alter table nl.ingest_rate_limits enable row level security;
 
--- Gateway secret: when at least one row exists, ingest RPCs only accept requests whose
--- x-nl-ingest-secret header (forwarded by the edge function) hashes to one of the rows.
+-- Gateway secret: ingest RPCs only accept requests whose x-nl-ingest-secret header
+-- (forwarded by the edge function) hashes to one of the rows. With no rows they refuse
+-- everything, unless the database has opted in to local/dev mode (nl.allow_direct_dev = '1').
 -- This closes the direct /rest/v1/rpc path that the public anon key would otherwise
 -- open around the edge function and Nginx per-IP limits.
 -- Up to two hashes may be active, so the secret can be rotated without an outage:
@@ -96,7 +97,15 @@ declare
   v_supplied text;
 begin
   if not exists (select 1 from nl.ingest_gateway) then
-    return;  -- not configured (local/dev); production must configure it (see RELEASE_CHECKLIST.md)
+    -- Fail closed: with no secret configured, every ingest call is refused, so a skipped
+    -- release step stops telemetry instead of opening the direct /rest/v1/rpc path.
+    -- Local and test databases opt in explicitly with
+    --   alter database <db> set nl.allow_direct_dev = '1';
+    -- (the database twin of NL_ALLOW_DIRECT_DEV). Never set it on a deployed project.
+    if coalesce(current_setting('nl.allow_direct_dev', true), '') = '1' then
+      return;
+    end if;
+    raise exception 'ingest_gateway_not_configured' using errcode = '42501';
   end if;
   v_supplied := coalesce(
     nullif(current_setting('request.headers', true), '')::jsonb ->> 'x-nl-ingest-secret', '');
