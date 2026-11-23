@@ -119,7 +119,7 @@
 
 - [x] Put the source in the team's repository. Keep it private. Added `LICENSE` (`Copyright (c) 2026 Eirini Konidari. All rights reserved.`), `.gitignore`, `.gitattributes`, and `.github/workflows/ci.yml`.
 - [ ] Agree who owns what after the course ends: Supabase, the domain, the keys, the content.
-- [x] Pitch, business model (`business/BUSINESS_MODEL_AND_ROI.md`), competitor analysis (`business/COMPETITOR_ANALYSIS.md`), stakeholder analysis (`business/STAKEHOLDER_ANALYSIS.md`), and technical suites updated to the 21 November 2026 v2.1 state (263 automated checks passing).
+- [x] Pitch, business model, competitor analysis, stakeholder analysis (kept in a private repository), and technical suites updated to the 21 November 2026 v2.1 state (263 automated checks passing).
 - [ ] Give group mates the handover note (section 1) and the privacy assessment to read.
 - [ ] Decide what happens to the data and the accounts when the project ends.
 

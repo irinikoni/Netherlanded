@@ -14,3 +14,8 @@ Thumbs.db
 
 # tokenade — legacy per-project embedding model cache (now global)
 .fastembed_cache/
+
+# Business documents and decks live in a private repository, not this public one
+business/
+presentations/
+tools/decks/
