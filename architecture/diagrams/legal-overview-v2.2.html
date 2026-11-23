@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Netherlanded legal overview v2.2</title>
+<style>
+:root{--bg:#eef2ef;--ink:#14281f;--muted:#4b5b53;--green:#1c5a3c;--card:#f7f9f7;--gold:#f8f0dc;--goldb:#e9d6a6;--blue:#24406b;--line:#d5ddd8;--red:#f6e3e1}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font:15px/1.45 "DejaVu Sans","Liberation Sans",Arial,sans-serif;color:var(--ink)}
+.page{width:1240px;padding:40px 44px}
+.brand{font-weight:700;color:var(--green);font-size:15px}.logo{display:inline-block;width:22px;height:22px;border-radius:50%;background:linear-gradient(#f2c230 0 50%,#1c5a3c 50%);vertical-align:-5px;margin-right:8px}
+h1{font-family:"DejaVu Serif",Georgia,serif;font-size:40px;line-height:1.12;margin:14px 0 10px}
+h2{font-family:"DejaVu Serif",Georgia,serif;font-size:24px;margin:30px 0 4px}.lead{color:var(--muted);margin:0 0 14px}
+.grid{display:grid;gap:14px}.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.card.g{background:var(--gold);border-color:var(--goldb)}.kick{font-size:11px;letter-spacing:.08em;color:var(--muted);font-weight:700;text-transform:uppercase}
+.card h3{margin:4px 0 6px;font-family:"DejaVu Serif",Georgia,serif;font-size:18px}.card p{margin:0;font-size:13.5px;color:var(--muted)}
+.tag{display:inline-block;margin-top:8px;font-size:10.5px;font-weight:700;letter-spacing:.05em;background:#e3ece6;border-radius:5px;padding:2px 7px;color:var(--green)}
+.new{display:inline-block;font-size:10px;font-weight:700;color:#fff;background:#c0392b;border-radius:5px;padding:1px 6px;margin-left:6px;vertical-align:3px}
+table{width:100%;border-collapse:collapse;font-size:13.5px}td,th{padding:8px 8px;border-top:1px solid var(--line);text-align:left;vertical-align:top}th{font-size:12px;color:var(--muted);border-top:none}
+td:first-child{font-weight:700;width:30%}
+.big{font-family:"DejaVu Serif",Georgia,serif;font-size:28px;font-weight:700}
+.ok{background:#e6efe8}.todo{background:#f5ead2}ul{margin:6px 0 0 18px;padding:0}li{margin:4px 0;font-size:13.5px}
+.mock{border:1px solid var(--line);border-radius:12px;background:#fff;padding:12px;margin-top:12px}.btn{background:#1c5a3c;color:#fff;text-align:center;border-radius:8px;padding:8px;font-weight:700;font-size:13px}
+.sw{display:flex;justify-content:space-between;align-items:center;border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:8px 0;font-size:13px}
+.tg{width:36px;height:20px;border-radius:10px;background:#2e8b57;position:relative}.tg:after{content:"";position:absolute;right:2px;top:2px;width:16px;height:16px;border-radius:50%;background:#fff}
+.foot{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:26px;border-top:1px solid var(--line);padding-top:10px}
+</style></head><body><div class="page">
+<div class="brand"><span class="logo"></span>Netherlanded · v2.2 Legal &amp; Privacy Overview</div>
+<h1>Student data: who is responsible,<br>what the law asks, and what we proved</h1>
+<p class="lead">How the app handles student progress without accounts, which Dutch and EU laws apply, who is controller for what, and what universities can and cannot see. <b>Privacy Policy version 2.2 · 23 November 2026.</b> <span class="new">NEW</span> marks changes since v2.1.</p>
+
+<h2>The laws involved</h2><p class="lead">Two questions: may the app read and write on the phone, and may any data leave it?</p>
+<div class="grid" style="grid-template-columns:repeat(4,1fr)">
+ <div class="card"><div class="kick">Dutch cookie rule</div><h3>Telecommunicatiewet 11.7a</h3><p>Storage on the phone needs consent unless strictly necessary or <b>analytics with little privacy impact by the service provider</b>. Netherlanded is that provider, so Tier 1 may run without consent while it measures the app's own quality.</p></div>
+ <div class="card"><div class="kick">EU privacy law</div><h3>GDPR / AVG</h3><p>Tier 1: <b>legitimate interest</b> (Art. 6(1)(f)) with the right to object shown clearly (Art. 21(4)). Tier 2: <b>specific opt-in consent</b> (Art. 6(1)(a), 7) naming both purposes.</p></div>
+ <div class="card"><div class="kick">Dutch implementation</div><h3>UAVG, age 16</h3><p>Terms require 16+. Students aged 16–17 are minors, which weighs heavily in every legitimate-interest balance.</p></div>
+ <div class="card"><div class="kick">Consumer &amp; cyber law</div><h3>Civil Code &amp; NIS2 (Cbw)</h3><p>Consumer terms keep mandatory rights. No student identifiers on servers keeps vendor risk low for universities.</p></div>
+</div>
+
+<h2>Who is responsible <span class="new">NEW</span></h2><p class="lead">Roles are set per processing operation. Netherlanded will be run by an <i>eenmanszaak</i> (KVK details still to fill in): the owner is personally the controller and liable, so insurance comes first.</p>
+<div class="card"><table>
+ <tr><th>Processing</th><th>Controller</th><th>Netherlanded's role</th><th>Instrument</th></tr>
+ <tr><td>App, gateway security, technical logs</td><td>Netherlanded</td><td>Controller</td><td>Privacy policy §11, §13</td></tr>
+ <tr><td>Collecting the statistics counts</td><td>Netherlanded and the partner university, jointly</td><td>Joint controller</td><td>Art. 26 arrangement in the university agreement</td></tr>
+ <tr><td>The university's own reports and dashboard</td><td>The university</td><td>Processor</td><td>SURF Model DPA (Art. 28) + dashboard service schedule</td></tr>
+ <tr><td>National benchmarks</td><td>Netherlanded</td><td>Controller</td><td>Own legitimate-interest assessment (Part 2); not a DPA term (Art. 28(10))</td></tr>
+ <tr><td>Staff accounts and editor audit log</td><td>Netherlanded</td><td>Controller</td><td>Separate staff privacy notice</td></tr>
+</table></div>
+
+<h2>How the data flows</h2><p class="lead">Everything stays on the phone by default. Only shuffled, identifier-free counts can leave.</p>
+<div class="grid" style="grid-template-columns:repeat(6,1fr)">
+ <div class="card"><div class="big">1</div><h3>On the phone</h3><p>School, campus, arrival date, steps and notes stay in local storage. No accounts.</p><span class="tag">NOT SHARED</span></div>
+ <div class="card g"><div class="big">2</div><h3>Notice &amp; choice <span class="new">NEW</span></h3><p>Tier 1 switch on by default with one Continue (object = switch off). Tier 2: separate explicit yes / no / later.</p><span class="tag">STUDENT DECIDES</span></div>
+ <div class="card"><div class="big">3</div><h3>Shuffled batches</h3><p>Weekly, ≤100 events, no cookies or referrer. Deleted on objection.</p><span class="tag">NO IDENTIFIERS</span></div>
+ <div class="card g"><div class="big">4</div><h3>IP-stripped gateway <span class="new">NEW</span></h3><p>Proxy strips IP, UA, referer and cookies; never logs IPs. Database refuses calls that skip the gateway.</p><span class="tag">IP STRIPPED</span></div>
+ <div class="card g"><div class="big">5</div><h3>Folded &amp; purged</h3><p>Arrival time rounded to the hour; folded hourly; raw counts deleted ≤24 h / ≤48 h (encrypted backups up to [7] days).</p><span class="tag">SHORT-LIVED</span></div>
+ <div class="card"><div class="big">6</div><h3>Protected release <span class="new">NEW</span></h3><p>Floor, secret noise, rounding, carry-forward and suppression before any dashboard sees it.</p><span class="tag">ANONYMOUS OUTPUT</span></div>
+</div>
+
+<h2>The two tiers</h2><p class="lead">Separate on the phone, at separate endpoints and in separate tables, never joined.</p>
+<div class="grid" style="grid-template-columns:1fr 1fr">
+ <div class="card"><h3>Tier 1 · Limited service statistics <span class="tag" style="margin:0 0 0 6px">ON UNLESS YOU OBJECT</span></h3>
+  <table><tr><td>Device rule</td><td>Analytics exception, Tw 11.7a (Netherlanded is the provider)</td></tr>
+  <tr><td>GDPR basis</td><td>Legitimate interest, written balancing test</td></tr>
+  <tr><td>Student's right</td><td><b>Object</b> with the switch on the notice or later in Profile; queued counts deleted</td></tr>
+  <tr><td>Each count holds</td><td>App version, school, intake semester, broad category, applies / completed, cohort joined, technical error</td></tr>
+  <tr><td>Purpose limit <span class="new">NEW</span></td><td>Benchmarks from Tier 1 only to improve the app; sector reports from Tier 2 (decision open)</td></tr></table>
+  <div class="mock"><b style="font-size:13px">Limited service statistics</b><div class="sw">Limited service statistics<span class="tg"></span></div><div class="btn">Continue</div><p style="font-size:11.5px;margin-top:6px">Switch shown above Continue on a phone; off = objection.</p></div></div>
+ <div class="card"><h3>Tier 2 · Additional statistics <span class="tag" style="margin:0 0 0 6px;background:#e1e8f3;color:var(--blue)">OFF UNLESS YOU SAY YES</span></h3>
+  <table><tr><td>Device rule</td><td>Consent required, Tw 11.7a</td></tr>
+  <tr><td>GDPR basis</td><td>Opt-in consent to Netherlanded and the partner university as joint controllers</td></tr>
+  <tr><td>Purposes named <span class="new">NEW</span></td><td>Own university's support (groups of 15+) and national comparisons (3+ institutions, no single school or student)</td></tr>
+  <tr><td>Student's right</td><td><b>Withdraw anytime</b> in Profile; local queue deleted</td></tr>
+  <tr><td>Each count holds</td><td>School, EU / non-EU, intake, step, what happened; no exact times</td></tr></table>
+  <div class="mock"><b style="font-size:13px">Share additional statistics</b><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px"><div class="btn" style="background:#24406b">Continue with sharing</div><div class="btn" style="background:#24406b">Continue without sharing</div></div><p style="font-size:11.5px;margin-top:6px;text-align:center">Decide later · neither choice pre-selected</p></div></div>
+</div>
+
+<h2>What universities can see</h2><p class="lead">Read-only, own-institution snapshots, checked again by <code>nl.assert_release_safe()</code> before release. Access is written into the contract; specific numbers are not.</p>
+<div class="grid" style="grid-template-columns:repeat(6,1fr)">
+ <div class="card"><div class="big">15+</div><p>students behind every cohort and every published cell</p></div>
+ <div class="card g"><div class="big">±4</div><p>secret noise per cell, then rounded to the nearest 5 <span class="new">NEW</span></p></div>
+ <div class="card g"><div class="big">&lt;5</div><p>new contributions: the previous value is shown again <span class="new">NEW</span></p></div>
+ <div class="card"><div class="big">−x</div><p>complementary + secondary suppression stop subtraction</p></div>
+ <div class="card g"><div class="big">3+</div><p>institutions behind any national benchmark, none dominant <span class="new">NEW</span></p></div>
+ <div class="card"><div class="big">0</div><p>raw rows, accounts, history or other schools' rows</p></div>
+</div>
+
+<h2>What the tests proved <span class="new">NEW</span></h2>
+<div class="grid" style="grid-template-columns:1fr 1fr">
+ <div class="card ok"><h3>Built &amp; verified (23 Nov 2026)</h3><ul>
+  <li>Fake-student flooding: attacker's guess fell from certain to 56 % (coin flip 50 %)</li>
+  <li>Comparing monthly snapshots: small changes now invisible (0 of 40 rounds, was 20 of 20)</li>
+  <li>Hidden small cells cannot be reconstructed; benchmarks cannot be subtracted</li>
+  <li>Anon key cannot rewrite city ownership (fixed); users cannot raise their own role</li>
+  <li>Real Supabase stack 46/0 · database 106/106 · gateway 32/32 · browser 29/29 · mutation check 0 missed</li></ul></div>
+ <div class="card todo"><h3>Still open before real students use it</h3><ul>
+  <li>Counsel review of the controller split, Terms v2.2, both LIAs and the DPIA</li>
+  <li>Decide: Tier 1 benchmarks only to improve the app</li>
+  <li>Register the <i>eenmanszaak</i>; fill KVK, address and contact; insurance</li>
+  <li>Sign SURF DPA, Art. 26 arrangement and dashboard schedule with each partner</li>
+  <li>Set the real backup window ([7] days); revoke the legacy JWT secret</li>
+  <li>Independent third-party penetration test</li></ul></div>
+</div>
+<div class="foot"><span>Summarises TERMS_AND_PRIVACY.md v2.2, DISCLOSURE_CONTROL.md, LEGITIMATE_INTEREST_ASSESSMENT.md, PRIVACY_ASSESSMENT.md and architecture/TEST_FINDINGS_SUMMARY.md. Not formal legal advice.</span><span>© 2026 Eirini Konidari</span></div>
+</div></body></html>

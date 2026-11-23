@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Netherlanded architecture v2.2</title>
+<style>
+:root{--ink:#14281f;--muted:#4b5b53;--green:#1c5a3c;--green-l:#e8f2ec;--gold:#9a6b0b;--gold-l:#fbf4e2;--blue:#24406b;--blue-l:#ecf1f8;--purple:#5b2a86;--purple-l:#f5eefb;--red:#9b2c2c;--line:#cfd8d3}
+*{box-sizing:border-box}body{margin:0;background:#fff;font:15px/1.4 "DejaVu Sans","Liberation Sans",Arial,sans-serif;color:var(--ink)}
+.page{width:1560px;padding:32px 36px}
+h1{font-size:34px;margin:0 0 4px}.sub{color:var(--muted);font-size:16px;margin-bottom:22px}
+.logo{display:inline-block;width:40px;height:40px;border-radius:9px;background:linear-gradient(#f2c230 0 50%,#1c5a3c 50%);vertical-align:-8px;margin-right:12px}
+.row{display:grid;gap:16px;margin-bottom:14px}.zone{border:2px solid var(--green);border-radius:16px;padding:14px 16px;background:var(--green-l)}
+.zone.edge{border-color:var(--blue);background:var(--blue-l)}.zone.sb{border-color:#3d6e5a;background:#f1f7f3}
+.zone.nl{border-color:var(--gold);background:var(--gold-l)}.zone.ct{border-color:var(--blue);background:var(--blue-l)}.zone.test{border-color:var(--purple);background:var(--purple-l)}
+.zt{font-weight:700;font-size:17px;margin:0 0 10px}.zt small{font-weight:400;color:var(--muted)}
+.box{background:#fff;border:1.5px solid var(--line);border-radius:11px;padding:10px 12px}
+.box h3{margin:0 0 4px;font-size:15.5px}.box p{margin:2px 0;font-size:13px;color:var(--muted)}
+.box .k{color:var(--green);font-weight:700}.box .w{color:var(--red);font-weight:700}.box .p{color:var(--purple);font-weight:700}
+.new{display:inline-block;font-size:10.5px;font-weight:700;color:#fff;background:#c0392b;border-radius:5px;padding:1px 6px;margin-left:6px;vertical-align:2px}
+.arrow{text-align:center;font-size:13px;color:var(--muted);margin:-4px 0 10px}.arrow b{color:var(--ink)}
+.pipe{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}.pipe .box{padding:8px}.pipe h3{font-size:13.5px}
+.legend{display:flex;gap:26px;font-size:13px;color:var(--muted);margin-top:8px}.legend span b{color:#c0392b}
+.foot{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted);margin-top:10px}
+</style></head><body><div class="page">
+<h1><span class="logo"></span>Netherlanded: System Architecture (v2.2)</h1>
+<div class="sub">Pentest-hardened build · 23 November 2026 · Tested on PostgreSQL 16 locally and on the real Supabase stack (PostgreSQL 17, PostgREST, GoTrue, Kong) · <b style="color:#c0392b">NEW</b> = changed since v2.1</div>
+
+<div class="row" style="grid-template-columns:1fr 1.5fr 1.5fr">
+ <div class="zone" style="background:var(--gold-l);border-color:var(--gold)"><div class="zt">Static host / CDN</div>
+  <div class="box"><h3>netherlanded-app.html + sw.js</h3><p>Strict CSP (one SHA-256 script hash)</p><p>No third-party requests (verified in browser tests)</p></div>
+  <div class="box" style="margin-top:8px"><h3>web/dashboard.html · web/editor.html</h3><p>API text rendered as text only</p><p>Staff token in sessionStorage, cleared on Clear</p></div></div>
+ <div class="zone"><div class="zt">Student phone <small>(offline-first PWA, no accounts)</small></div>
+  <div class="box"><h3>Tier 1 notice <span class="new">NEW</span></h3><p>Switch <span class="k">on by default</span> (legitimate interest) + one Continue; switching off = objection</p><p>Switch visible above Continue on a phone (Art. 21(4))</p></div>
+  <div class="box" style="margin-top:8px"><h3>Tier 2 consent <span class="new">NEW</span></h3><p>"Share additional statistics": own university (groups of 15+) and national comparisons (3+ institutions); explicit choice</p></div>
+  <div class="box" style="margin-top:8px"><h3>On-device storage</h3><p>Profile, steps, deadlines stay local · shuffled weekly batches (≤100 events, 64 KB)</p></div></div>
+ <div class="zone"><div class="zt">University staff browser</div>
+  <div class="box"><h3>Insights Dashboard</h3><p>Bearer JWT → GET /api/stats · own institution, <span class="k">latest snapshot only</span> <span class="new">NEW</span></p><p>Small counts shown as ranges ("fewer than 12 of N") · no size buckets</p><p class="k">Access written into the contract (service schedule)</p></div>
+  <div class="box" style="margin-top:8px"><h3>Content Editor</h3><p>Bearer JWT → /api/editor/* · shared cities locked to super_admin</p><p>City <i>and</i> municipality must be editable <span class="new">NEW</span> · https-only links</p></div></div>
+</div>
+<div class="arrow"><b>POST /api/t1 · /api/t2</b> (no token) &nbsp;&nbsp;·&nbsp;&nbsp; <b>GET /api/stats · /api/editor/*</b> (staff JWT)</div>
+
+<div class="zone edge" style="margin-bottom:14px"><div class="zt">Edge security boundary <small>(EU · stateless · never logs IPs, JWTs or bodies)</small></div>
+ <div class="row" style="grid-template-columns:1.3fr 1fr 1fr 1fr;margin:0">
+  <div class="box"><h3>Nginx reverse proxy <span class="new">NEW</span></h3><p>30 r/min per IP · strips XFF, real IP, UA, referer, <span class="k">Cookie</span>, client X-NL-Ingest-Secret</p><p><span class="k">server_tokens off · TLS 1.2/1.3 only</span> · security headers on every status</p><p>Adds X-NL-Proxy-Secret · client IP in no log file (tested)</p></div>
+  <div class="box"><h3>edge/ingest</h3><p>No JWT (--no-verify-jwt) · <span class="k">fails closed</span> without proxy secret</p><p>Forwards its own <span class="k">NL_INGEST_SECRET</span> <span class="new">NEW</span></p><p>Every upstream 400 → invalid_payload</p></div>
+  <div class="box"><h3>edge/stats</h3><p>JWT verification on · forwards caller JWT</p><p>Scope enforced in the database</p></div>
+  <div class="box"><h3>edge/editor</h3><p>JWT verification on · echoes only our own validation messages <span class="new">NEW</span></p></div>
+ </div></div>
+
+<div class="zone sb" style="margin-bottom:14px"><div class="zt">Supabase (EU) <small>· settings verified on the real stack</small> <span class="new">NEW</span></div>
+ <div class="row" style="grid-template-columns:repeat(4,1fr);margin:0">
+  <div class="box"><h3>Kong gateway</h3><p>Routes /rest/v1 and /functions/v1</p></div>
+  <div class="box"><h3>PostgREST</h3><p>Exposed schemas: public, nl, nl_content · anon sees only the 2 ingest RPCs · GET refused on write RPCs</p></div>
+  <div class="box"><h3>GoTrue (ES256)</h3><p>Public signup off · users cannot set app_metadata · forged, expired, alg-none tokens rejected</p><p class="w">Revoke legacy HS256 secret (P13)</p></div>
+  <div class="box"><h3>Gateway secret in DB</h3><p>nl.check_ingest_gateway(): direct RPC with the public anon key refused · 2 hashes for rotation</p></div>
+ </div></div>
+
+<div class="row" style="grid-template-columns:1.55fr 1fr">
+ <div class="zone nl"><div class="zt">PostgreSQL insights <small>(schema nl · no identifiers stored)</small></div>
+  <div class="row" style="grid-template-columns:1fr 1fr;margin-bottom:8px">
+   <div class="box"><h3>nl.raw_t1 · nl.raw_t2</h3><p>Allowlisted fields only; identity fields, `n`, misplaced high_risk rejected</p><p><span class="k">Arrival time rounded to the hour</span> · secret record key per event <span class="new">NEW</span></p><p>Purged ≤24 h / ≤48 h · health() flags a stalled fold</p></div>
+   <div class="box"><h3>Ingest guards</h3><p>≤100 events per request · rate limit counts <span class="k">events</span>, not requests <span class="new">NEW</span></p><p>Hourly fold: nl.accumulate() under advisory lock</p></div>
+  </div>
+  <div class="box" style="border-color:var(--purple);margin-bottom:8px"><h3 style="color:var(--purple)">Release pipeline · nl.build_stage() + nl.assert_release_safe() <span class="new">NEW</span></h3>
+   <div class="pipe" style="margin-top:6px">
+    <div class="box"><h3>1 Floor</h3><p>≥15 contributors &amp; denominator</p></div>
+    <div class="box"><h3>2 Cell-key noise</h3><p>±4, secret, fixed per cell · n-1 attack 1.00 → 0.56</p></div>
+    <div class="box"><h3>3 Round</h3><p>to the <b>nearest</b> 5 (unbiased)</p></div>
+    <div class="box"><h3>4 Carry-forward</h3><p>&lt;5 new contributions → previous value</p></div>
+    <div class="box"><h3>5 Complementary</h3><p>+ secondary suppression of a lone withheld cell</p></div>
+    <div class="box"><h3>6 Benchmarks</h3><p>≥3 institutions, no dominant one</p></div>
+    <div class="box"><h3>7 Audit</h3><p>re-checks all rules before commit</p></div>
+   </div>
+   <p style="margin-top:6px">Retired: rate-only delta rule (leaked 1–4 changes) and sticky rule (livelocked) · national scale 50 institutions: 32 s → 1.4 s</p></div>
+  <div class="box"><h3>nl.release_json_for_institution()</h3><p>Reader / editor / super_admin only · own institution rows · scoped readers: latest snapshot, no buckets, ranges for small counts</p></div>
+ </div>
+ <div class="zone ct"><div class="zt">PostgreSQL content <small>(schema nl_content)</small></div>
+  <div class="box"><h3>5 editor RPCs (SECURITY DEFINER)</h3><p>Shared city needs <span class="k">city_id and municipality</span> editable <span class="new">NEW</span></p><p>Per-service advisory lock (no overwrite race) <span class="new">NEW</span></p><p>https-only URLs · link labels without markup · strict dates (_parse_date) <span class="new">NEW</span></p></div>
+  <div class="box" style="margin-top:8px"><h3>public.institution_campuses</h3><p class="k">RLS on + revoked from anon/authenticated <span class="new">NEW</span></p><p>Closes P1: Supabase default grants let the anon key rewrite city ownership</p></div>
+  <div class="box" style="margin-top:8px"><h3>staff_change</h3><p>Append-only audit log of every edit</p></div>
+  <div class="box" style="margin-top:8px"><h3>Controller split</h3><p>App, logs, benchmarks: Netherlanded (eenmanszaak) · collection: joint (Art. 26) · university reports: university, Netherlanded processor (SURF Model DPA)</p></div>
+ </div>
+</div>
+
+<div class="zone test"><div class="zt">How it is verified <small>(pentest round 1–3)</small> <span class="new">NEW</span></div>
+ <div class="row" style="grid-template-columns:repeat(6,1fr);margin:0">
+  <div class="box"><h3>Database</h3><p>106/106 · privilege surface with Supabase default grants</p></div>
+  <div class="box"><h3>Real Supabase stack</h3><p>46 pass, 0 fail (GitHub Actions)</p></div>
+  <div class="box"><h3>Gateway + edge</h3><p>32/32 end-to-end · Deno 26/26</p></div>
+  <div class="box"><h3>Privacy attacks</h3><p>reconstruction, differencing, benchmark subtraction, n-1 flooding</p></div>
+  <div class="box"><h3>Fuzzing</h3><p>release pipeline, RPC JSON, Schemathesis 1,009 cases</p></div>
+  <div class="box"><h3>Mutation check</h3><p>37/39 caught, 0 missed · browser 29/29</p></div>
+ </div></div>
+
+<div class="foot"><span>Source: architecture/diagrams/architecture-v2.2.html · details in architecture/PENTEST_PLAN.md and TEST_FINDINGS_SUMMARY.md</span><span>© 2026 Eirini Konidari</span></div>
+</div></body></html>
