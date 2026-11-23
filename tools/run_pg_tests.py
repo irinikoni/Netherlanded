@@ -969,6 +969,124 @@ def main():
             except Exception as exc:
                 check('benchmark publication rule suite', False, str(exc))
 
+            # 11. Mutation-gap tests: each kills a mutation that survived tools/mutation_check.py
+            try:
+                T = {'institution': 'thuas', 'intake': '2026-sep', 'app_version': 'abcd1234'}
+                t1e = lambda **k: dict(T, **k)
+
+                # identity fields (privacy policy section 16); tier 1 and tier 2, any case
+                conn.execute('begin;')
+                bad_t1 = [k for k in ('sid', 'SID', 'session_id', 'user_id', 'email', 'ip', 'device_id', 'installation_id')
+                          if not rejects('select nl.ingest_t1_rpc(%s::jsonb)', (json.dumps(t1e(event='cohort_joined', **{k: 'x'})),))]
+                bad_t2 = [k for k in ('sid', 'Session_Id', 'uid', 'ip_address', 'deviceid', 'install_id')
+                          if not rejects('select nl.ingest_t2_rpc(%s::jsonb)', (json.dumps({'institution': 'thuas', 'region': 'eu_eea',
+                                         'intake': '2026-sep', 'event': 'joined', k: 'x'}),))]
+                check('gap: identity fields are rejected by both tiers in any letter case (22023)', not bad_t1 and not bad_t2,
+                      f't1={bad_t1}, t2={bad_t2}')
+                # batch cap (M04)
+                check('gap: a batch of 101 events is rejected (22023)',
+                      rejects('select nl.ingest_t1_rpc(%s::jsonb)', (json.dumps([t1e(event='cohort_joined')] * 101),)))
+                conn.execute('rollback;')
+
+                # rate limiter counts events (M14)
+                reset_data(conn)
+                before = conn.execute("select coalesce(sum(req_count), 0) from nl.ingest_rate_limits where tier = 1 "
+                                      "and bucket_hour = date_trunc('hour', now())").fetchone()[0]
+                ingest_t1_chunked(conn, [t1e(event='cohort_joined')] * 50)
+                after = conn.execute("select coalesce(sum(req_count), 0) from nl.ingest_rate_limits where tier = 1 "
+                                     "and bucket_hour = date_trunc('hour', now())").fetchone()[0]
+                check('gap: one 50-event request counts 50 towards the rate limit (events, not requests)', after - before == 50,
+                      f'delta={after - before}')
+
+                # secondary suppression of a lone withheld cell (M09) + no buckets for scoped readers (M16)
+                reset_data(conn)
+                ingest_t1_chunked(conn, [t1e(event='cohort_joined')] * 20
+                                  + [t1e(event='step_applies', category='housing')] * 40
+                                  + [t1e(event='step_applies', category='money')] * 40
+                                  + [t1e(event='step_applies', category='health')] * 40
+                                  + [t1e(event='step_applies', category='work')] * 6)
+                conn.execute('select nl.accumulate()')
+                snap = conn.execute("select nl.publish_snapshot('secondary')").fetchone()[0]
+                withheld = dict(conn.execute("select row_key, reason::text from nl.suppressed_cell where snapshot_id = %s "
+                                             "and table_id = 't1_inst_category'", (snap,)).fetchall())
+                check('gap: a lone floor-withheld category also withholds its smallest sibling (secondary suppression, 4 categories)',
+                      withheld.get('thuas:work') == 'floor' and len(withheld) == 2
+                      and sorted(withheld.values()) == ['complementary', 'floor'], str(withheld))
+                conn.execute('begin;')
+                conn.execute('set local role authenticated')
+                conn.execute("select set_config('request.jwt.claims', %s, true)",
+                             (json.dumps({'role': 'authenticated', 'app_metadata': {'role': 'reader', 'institution_id': 'thuas'}}),))
+                rdoc = conn.execute("select nl.release_json_for_institution('thuas', null)").fetchone()[0]
+                conn.execute('rollback;')
+                held = [h for t in rdoc['tables'] for h in t['withheld']]
+                pdoc = conn.execute('select nl.release_json(null)').fetchone()[0]
+                pooled_held = [h for t in pdoc['tables'] for h in t['withheld']]
+                check('gap: scoped readers get withheld cells without size buckets (privileged view still has them)',
+                      len(held) >= 2 and all(h.get('bucket') is None for h in held)
+                      and any(h.get('bucket') is not None for h in pooled_held), f'held={len(held)}')
+
+                # benchmark dominance on one count only (M12)
+                def pooled_published(spec):
+                    reset_data(conn)
+                    b = []
+                    for inst, (applies, completes) in spec.items():
+                        tpl = dict(T, institution=inst)
+                        b += [dict(tpl, event='cohort_joined')] * 20
+                        b += [dict(tpl, event='step_applies', category='housing')] * applies
+                        b += [dict(tpl, event='step_completed', category='housing')] * completes
+                    ingest_t1_chunked(conn, b)
+                    conn.execute('select nl.accumulate()')
+                    sn = conn.execute("select nl.publish_snapshot('dominance')").fetchone()[0]
+                    return conn.execute("select count(*) from nl.published_cell where snapshot_id = %s and table_id = 't1_category_totals' "
+                                        "and row_key = 'housing'", (sn,)).fetchone()[0] == 1
+                check('gap: benchmark withheld when only the denominator is dominated',
+                      not pooled_published({'thuas': (200, 20), 'uva': (40, 20), 'leiden': (40, 20)}))
+                check('gap: benchmark withheld when only the numerator is dominated',
+                      not pooled_published({'thuas': (40, 38), 'uva': (40, 2), 'leiden': (40, 2)}))
+
+                # retention reporting (M24) and health (M25)
+                reset_data(conn)
+                conn.execute("insert into nl.raw_t1 (institution, intake, event, app_version, received_at) "
+                             "values ('thuas', '2026-sep', 'cohort_joined', 'abcd1234', now() - interval '4 hours')")
+                h = conn.execute('select nl.health()').fetchone()[0]
+                check('gap: health flags a stalled fold (unprocessed row older than 3 h)', h.get('fold_stalled') is True and h.get('ok') is False, str(h))
+                conn.execute("insert into nl.raw_t1 (institution, intake, event, app_version, received_at) "
+                             "values ('thuas', '2026-sep', 'cohort_joined', 'abcd1234', now() - interval '26 hours')")
+                lost = dict(conn.execute('select store, removed from nl.purge_raw()').fetchall())
+                check('gap: purge_raw reports raw rows that expired unprocessed', lost.get('raw_unfolded_expired') == 1, str(lost))
+                reset_data(conn)
+
+                # editor: https-only links and safe labels (M22)
+                conn.execute('begin;')
+                conn.execute('set local role authenticated')
+                conn.execute("select set_config('request.jwt.claims', %s, true)",
+                             (json.dumps({'sub': 'gap', 'role': 'authenticated', 'app_metadata': {'role': 'editor', 'institution_id': 'thuas'}}),))
+                step = {'step_id': 'register_gp', 'municipality_id': 'zoetermeer', 'for_institution_id': 'thuas', 'body': 'Local GP guidance.'}
+                check('gap: step links must be https (22023)',
+                      rejects('select nl_content.editor_upsert_step_local(%s::jsonb, %s)',
+                              (json.dumps(dict(step, links=[{'url': 'http://example.org/', 'label': 'GP list'}])), 'gap test')))
+                check('gap: link labels with markup are rejected (22023)',
+                      rejects('select nl_content.editor_upsert_step_local(%s::jsonb, %s)',
+                              (json.dumps(dict(step, links=[{'url': 'https://example.org/', 'label': '<img src=x onerror=alert(1)>'}])), 'gap test')))
+                conn.execute('rollback;')
+
+                # editor: the ownership check holds a per-service lock until commit (M23)
+                with psycopg.connect(uri, autocommit=True) as conn_a, psycopg.connect(uri, autocommit=True) as conn_b:
+                    conn_a.execute('begin;')
+                    conn_a.execute('set local role authenticated')
+                    conn_a.execute("select set_config('request.jwt.claims', %s, true)",
+                                   (json.dumps({'sub': 'gap', 'role': 'authenticated', 'app_metadata': {'role': 'editor', 'institution_id': 'thuas'}}),))
+                    conn_a.execute('select nl_content.editor_upsert_service(%s::jsonb, %s)',
+                                   (json.dumps({'service_id': 'gap_lock_probe', 'name': 'Lock probe', 'service_type': 'support',
+                                                'city_id': 'the-hague', 'municipality_id': 'the-hague', 'for_institution_id': 'thuas',
+                                                'description': 'Lock probe card.', 'url': 'https://example.org/'}), 'gap test'))
+                    got = conn_b.execute("select pg_try_advisory_xact_lock(hashtext('nl_content.service:gap_lock_probe'))").fetchone()[0]
+                    conn_a.execute('rollback;')
+                check('gap: a concurrent writer cannot take the service lock while an upsert is open (no check-then-write race)',
+                      got is False)
+            except Exception as exc:
+                check('mutation-gap suite', False, str(exc))
+
     finally:
         if pg is not None:
             try:

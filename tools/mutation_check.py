@@ -25,6 +25,12 @@ SUITES = {
     'deno': ['deno', 'test', '--allow-env', '--allow-read', 'edge/tests/edge.test.ts'],
 }
 
+# Mutants proven equivalent (behaviour unchanged, so no test can kill them); reported, not failed.
+EQUIVALENT = {
+    'M01': 'tier 1 also has a strict field allowlist, which rejects every identity field on its own',
+    'M11': 'the dominance rule always fails for 1 or 2 institutions, so ">= 3 institutions" is implied',
+}
+
 # (id, file, old, new, replace_all, suites, property protected)
 MUTATIONS = [
     ('M01', 'db/002_ingest.sql', "    perform nl.reject_identity(e);\n", "", False, ['pg'],
@@ -138,11 +144,14 @@ def main():
         finally:
             with open(full, 'w', encoding='utf-8') as fh:
                 fh.write(original)
-        status = 'KILLED' if killer else 'SURVIVED'
+        status = 'KILLED' if killer else ('EQUIVALENT' if mid in EQUIVALENT else 'SURVIVED')
+        if status == 'EQUIVALENT':
+            killer = EQUIVALENT[mid]
         results.append((mid, status, prop, killer or 'no suite failed'))
         print(f'{mid} {status:11} {prop}  [{killer or "-"}] ({time.time() - start:.0f}s)')
-    bad = [r for r in results if r[1] != 'KILLED']
-    print(f'\n{len(results) - len(bad)}/{len(results)} mutations killed')
+    bad = [r for r in results if r[1] not in ('KILLED', 'EQUIVALENT')]
+    equivalent = sum(1 for r in results if r[1] == 'EQUIVALENT')
+    print(f'\n{len(results) - len(bad) - equivalent}/{len(results)} mutations killed, {equivalent} equivalent, {len(bad)} survived')
     for mid, status, prop, info in bad:
         print(f'   {mid} {status}: {prop} ({info})')
     sys.exit(1 if bad else 0)
