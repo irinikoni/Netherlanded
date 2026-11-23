@@ -95,10 +95,12 @@ begin
        set contributors = nl.t1_cohort.contributors + excluded.contributors,
            updated_at = now();
 
-    insert into nl.accumulated_cell (table_id, row_key, col_key, num, denom, updated_at)
+    insert into nl.accumulated_cell (table_id, row_key, col_key, num, denom, num_key, denom_key, updated_at)
     select 't1_institution_intake', institution, intake,
            count(*) filter (where event = 'step_completed'),
            count(*) filter (where event = 'step_applies'),
+           coalesce(sum(rkey) filter (where event = 'step_completed'), 0) % 252,
+           coalesce(sum(rkey) filter (where event = 'step_applies'), 0) % 252,
            now()
       from nl.raw_t1
      where fold_run = v_run and event in ('step_applies', 'step_completed')
@@ -106,12 +108,16 @@ begin
     on conflict (table_id, row_key, col_key) do update
        set num = nl.accumulated_cell.num + excluded.num,
            denom = nl.accumulated_cell.denom + excluded.denom,
+           num_key = (nl.accumulated_cell.num_key + excluded.num_key) % 252,
+           denom_key = (nl.accumulated_cell.denom_key + excluded.denom_key) % 252,
            updated_at = now();
 
-    insert into nl.accumulated_cell (table_id, row_key, col_key, num, denom, updated_at)
+    insert into nl.accumulated_cell (table_id, row_key, col_key, num, denom, num_key, denom_key, updated_at)
     select 't1_category_totals', category::text, intake,
            count(*) filter (where event = 'step_completed'),
            count(*) filter (where event = 'step_applies'),
+           coalesce(sum(rkey) filter (where event = 'step_completed'), 0) % 252,
+           coalesce(sum(rkey) filter (where event = 'step_applies'), 0) % 252,
            now()
       from nl.raw_t1
      where fold_run = v_run
@@ -121,12 +127,16 @@ begin
     on conflict (table_id, row_key, col_key) do update
        set num = nl.accumulated_cell.num + excluded.num,
            denom = nl.accumulated_cell.denom + excluded.denom,
+           num_key = (nl.accumulated_cell.num_key + excluded.num_key) % 252,
+           denom_key = (nl.accumulated_cell.denom_key + excluded.denom_key) % 252,
            updated_at = now();
 
-    insert into nl.accumulated_cell (table_id, row_key, col_key, num, denom, updated_at)
+    insert into nl.accumulated_cell (table_id, row_key, col_key, num, denom, num_key, denom_key, updated_at)
     select 't1_inst_category', institution || ':' || category::text, intake,
            count(*) filter (where event = 'step_completed'),
            count(*) filter (where event = 'step_applies'),
+           coalesce(sum(rkey) filter (where event = 'step_completed'), 0) % 252,
+           coalesce(sum(rkey) filter (where event = 'step_applies'), 0) % 252,
            now()
       from nl.raw_t1
      where fold_run = v_run
@@ -136,12 +146,16 @@ begin
     on conflict (table_id, row_key, col_key) do update
        set num = nl.accumulated_cell.num + excluded.num,
            denom = nl.accumulated_cell.denom + excluded.denom,
+           num_key = (nl.accumulated_cell.num_key + excluded.num_key) % 252,
+           denom_key = (nl.accumulated_cell.denom_key + excluded.denom_key) % 252,
            updated_at = now();
 
-    insert into nl.accumulated_cell (table_id, row_key, col_key, num, denom, updated_at)
+    insert into nl.accumulated_cell (table_id, row_key, col_key, num, denom, num_key, denom_key, updated_at)
     select 't1_error_rate', institution, intake,
            count(*) filter (where event = 'technical_error'),
            count(*),
+           coalesce(sum(rkey) filter (where event = 'technical_error'), 0) % 252,
+           coalesce(sum(rkey), 0) % 252,
            now()
       from nl.raw_t1
      where fold_run = v_run
@@ -149,17 +163,21 @@ begin
     on conflict (table_id, row_key, col_key) do update
        set num = nl.accumulated_cell.num + excluded.num,
            denom = nl.accumulated_cell.denom + excluded.denom,
+           num_key = (nl.accumulated_cell.num_key + excluded.num_key) % 252,
+           denom_key = (nl.accumulated_cell.denom_key + excluded.denom_key) % 252,
            updated_at = now();
   end if;
 
   if v_max2 > 0 then
-    insert into nl.accumulated_cell (table_id, row_key, col_key, num, denom, updated_at)
+    insert into nl.accumulated_cell (table_id, row_key, col_key, num, denom, num_key, denom_key, updated_at)
     select 't2_step_totals',
            case when exists (select 1 from nl.step_vocab v where v.step = r.step and v.is_known)
                 then r.step else 'other' end,
            r.intake,
            count(*) filter (where r.event = 'step_completed'),
            count(*) filter (where r.event = 'step_applies'),
+           coalesce(sum(r.rkey) filter (where r.event = 'step_completed'), 0) % 252,
+           coalesce(sum(r.rkey) filter (where r.event = 'step_applies'), 0) % 252,
            now()
       from nl.raw_t2 r
      where r.fold_run = v_run
@@ -168,9 +186,11 @@ begin
     on conflict (table_id, row_key, col_key) do update
        set num = nl.accumulated_cell.num + excluded.num,
            denom = nl.accumulated_cell.denom + excluded.denom,
+           num_key = (nl.accumulated_cell.num_key + excluded.num_key) % 252,
+           denom_key = (nl.accumulated_cell.denom_key + excluded.denom_key) % 252,
            updated_at = now();
 
-    insert into nl.accumulated_cell (table_id, row_key, col_key, num, denom, updated_at)
+    insert into nl.accumulated_cell (table_id, row_key, col_key, num, denom, num_key, denom_key, updated_at)
     select 't2_inst_step',
            r.institution || ':' ||
              case when exists (select 1 from nl.step_vocab v where v.step = r.step and v.is_known)
@@ -178,6 +198,8 @@ begin
            r.intake,
            count(*) filter (where r.event = 'step_completed'),
            count(*) filter (where r.event = 'step_applies'),
+           coalesce(sum(r.rkey) filter (where r.event = 'step_completed'), 0) % 252,
+           coalesce(sum(r.rkey) filter (where r.event = 'step_applies'), 0) % 252,
            now()
       from nl.raw_t2 r
      where r.fold_run = v_run
@@ -186,9 +208,11 @@ begin
     on conflict (table_id, row_key, col_key) do update
        set num = nl.accumulated_cell.num + excluded.num,
            denom = nl.accumulated_cell.denom + excluded.denom,
+           num_key = (nl.accumulated_cell.num_key + excluded.num_key) % 252,
+           denom_key = (nl.accumulated_cell.denom_key + excluded.denom_key) % 252,
            updated_at = now();
 
-    insert into nl.accumulated_cell (table_id, row_key, col_key, num, denom, updated_at)
+    insert into nl.accumulated_cell (table_id, row_key, col_key, num, denom, num_key, denom_key, updated_at)
     select 't2_inst_opened',
            r.institution || ':' ||
              case when exists (select 1 from nl.step_vocab v where v.step = r.step and v.is_known)
@@ -196,6 +220,8 @@ begin
            r.intake,
            count(*) filter (where r.event = 'step_opened'),
            count(*) filter (where r.event = 'step_applies'),
+           coalesce(sum(r.rkey) filter (where r.event = 'step_opened'), 0) % 252,
+           coalesce(sum(r.rkey) filter (where r.event = 'step_applies'), 0) % 252,
            now()
       from nl.raw_t2 r
      where r.fold_run = v_run
@@ -204,9 +230,11 @@ begin
     on conflict (table_id, row_key, col_key) do update
        set num = nl.accumulated_cell.num + excluded.num,
            denom = nl.accumulated_cell.denom + excluded.denom,
+           num_key = (nl.accumulated_cell.num_key + excluded.num_key) % 252,
+           denom_key = (nl.accumulated_cell.denom_key + excluded.denom_key) % 252,
            updated_at = now();
 
-    insert into nl.accumulated_cell (table_id, row_key, col_key, num, denom, updated_at)
+    insert into nl.accumulated_cell (table_id, row_key, col_key, num, denom, num_key, denom_key, updated_at)
     select 't2_inst_missed',
            r.institution || ':' ||
              case when exists (select 1 from nl.step_vocab v where v.step = r.step and v.is_known)
@@ -214,6 +242,8 @@ begin
            r.intake,
            count(*) filter (where r.event = 'deadline_missed'),
            count(*) filter (where r.event = 'step_applies'),
+           coalesce(sum(r.rkey) filter (where r.event = 'deadline_missed'), 0) % 252,
+           coalesce(sum(r.rkey) filter (where r.event = 'step_applies'), 0) % 252,
            now()
       from nl.raw_t2 r
      where r.fold_run = v_run
@@ -222,12 +252,16 @@ begin
     on conflict (table_id, row_key, col_key) do update
        set num = nl.accumulated_cell.num + excluded.num,
            denom = nl.accumulated_cell.denom + excluded.denom,
+           num_key = (nl.accumulated_cell.num_key + excluded.num_key) % 252,
+           denom_key = (nl.accumulated_cell.denom_key + excluded.denom_key) % 252,
            updated_at = now();
 
-    insert into nl.accumulated_cell (table_id, row_key, col_key, num, denom, updated_at)
+    insert into nl.accumulated_cell (table_id, row_key, col_key, num, denom, num_key, denom_key, updated_at)
     select 't2_inst_region', institution || ':' || region, intake,
            count(*) filter (where event = 'step_completed'),
            count(*) filter (where event = 'step_applies'),
+           coalesce(sum(rkey) filter (where event = 'step_completed'), 0) % 252,
+           coalesce(sum(rkey) filter (where event = 'step_applies'), 0) % 252,
            now()
       from nl.raw_t2
      where fold_run = v_run
@@ -236,12 +270,16 @@ begin
     on conflict (table_id, row_key, col_key) do update
        set num = nl.accumulated_cell.num + excluded.num,
            denom = nl.accumulated_cell.denom + excluded.denom,
+           num_key = (nl.accumulated_cell.num_key + excluded.num_key) % 252,
+           denom_key = (nl.accumulated_cell.denom_key + excluded.denom_key) % 252,
            updated_at = now();
 
-    insert into nl.accumulated_cell (table_id, row_key, col_key, num, denom, updated_at)
+    insert into nl.accumulated_cell (table_id, row_key, col_key, num, denom, num_key, denom_key, updated_at)
     select 't2_inst_scam', institution, intake,
            count(*) filter (where event = 'scam_checked' and high_risk is true),
            count(*) filter (where event = 'scam_checked'),
+           coalesce(sum(rkey) filter (where event = 'scam_checked' and high_risk is true), 0) % 252,
+           coalesce(sum(rkey) filter (where event = 'scam_checked'), 0) % 252,
            now()
       from nl.raw_t2
      where fold_run = v_run
@@ -250,12 +288,16 @@ begin
     on conflict (table_id, row_key, col_key) do update
        set num = nl.accumulated_cell.num + excluded.num,
            denom = nl.accumulated_cell.denom + excluded.denom,
+           num_key = (nl.accumulated_cell.num_key + excluded.num_key) % 252,
+           denom_key = (nl.accumulated_cell.denom_key + excluded.denom_key) % 252,
            updated_at = now();
 
-    insert into nl.t2_base (institution, intake, joined, arrived, updated_at)
+    insert into nl.t2_base (institution, intake, joined, arrived, joined_key, arrived_key, updated_at)
     select institution, intake,
            count(*) filter (where event = 'joined'),
            count(*) filter (where event = 'arrived'),
+           coalesce(sum(rkey) filter (where event = 'joined'), 0) % 252,
+           coalesce(sum(rkey) filter (where event = 'arrived'), 0) % 252,
            now()
       from nl.raw_t2
      where fold_run = v_run
@@ -264,6 +306,8 @@ begin
     on conflict (institution, intake) do update
        set joined = nl.t2_base.joined + excluded.joined,
            arrived = nl.t2_base.arrived + excluded.arrived,
+           joined_key = (nl.t2_base.joined_key + excluded.joined_key) % 252,
+           arrived_key = (nl.t2_base.arrived_key + excluded.arrived_key) % 252,
            updated_at = now();
 
     insert into nl.t2_region_base (institution, region, intake, joined, updated_at)
@@ -276,8 +320,8 @@ begin
        set joined = nl.t2_region_base.joined + excluded.joined,
            updated_at = now();
 
-    insert into nl.accumulated_cell (table_id, row_key, col_key, num, denom, updated_at)
-    select 't2_institution_intake', t.institution, t.intake, b.arrived, b.joined, now()
+    insert into nl.accumulated_cell (table_id, row_key, col_key, num, denom, num_key, denom_key, updated_at)
+    select 't2_institution_intake', t.institution, t.intake, b.arrived, b.joined, b.arrived_key, b.joined_key, now()
       from (select distinct institution, intake
               from nl.raw_t2
              where fold_run = v_run) t
@@ -286,6 +330,8 @@ begin
     on conflict (table_id, row_key, col_key) do update
        set num = excluded.num,
            denom = excluded.denom,
+           num_key = excluded.num_key,
+           denom_key = excluded.denom_key,
            updated_at = now();
 
     insert into nl.unmapped_value (field, value, hits)
@@ -404,9 +450,10 @@ begin
                           when num <= 5 or (denom - num) <= 5 or rate <= 0.10 or rate >= 0.90 then null
                           else band end,
              'rate_display', case
-               -- published counts are rounded to the nearest 5, so a published 0 or 5 means 0..7 true
-               when num <= 5 then 'fewer than 8 of ' || denom::text
-               when (denom - num) <= 5 then 'all but fewer than 8 of ' || denom::text
+               -- published counts carry -4..+4 cell-key noise and are rounded to 5, so a published
+               -- 0 or 5 means 0..11 true; near the top both counts are noisy, so stay qualitative
+               when num <= 5 then 'fewer than 12 of ' || denom::text
+               when (denom - num) <= 5 then 'almost all of ' || denom::text
                when rate <= 0.10 then '<= 10.0%'
                when rate >= 0.90 then '>= 90.0%'
                when denom < 50 then band::text || '%'

@@ -35,7 +35,7 @@ def reset_data(conn):
     conn.execute(
         'truncate nl.raw_t1, nl.raw_t2, nl.accumulated_cell, nl.t1_cohort, '
         'nl.t2_base, nl.stage_cell, nl.published_cell, nl.suppressed_cell, '
-        'nl.snapshot, nl.unmapped_value, nl.accumulation_run restart identity cascade'
+        'nl.snapshot, nl.unmapped_value, nl.accumulation_run, nl.ingest_rate_limits restart identity cascade'
     )
 
 
@@ -76,6 +76,11 @@ def main():
                     check(f'execute {fname}', True)
                 except Exception as exc:
                     check(f'execute {fname}', False, str(exc))
+
+            # Deterministic record keys (cell-key noise = 0) for every suite that asserts exact
+            # published numbers; section 9 restores random keys and tests the perturbation itself.
+            conn.execute('alter table nl.raw_t1 alter column rkey set default 0')
+            conn.execute('alter table nl.raw_t2 alter column rkey set default 0')
 
             # 2. Isolated live test of db/005_content_editor_security_fix.sql
             try:
@@ -207,7 +212,7 @@ def main():
                 housing_cell = [c for c in cat_tbl['cells'] if c['row'] == 'thuas:housing'][0]
                 check('authenticated reader gets null num/rate/band and a count-range label on tail-capped cell',
                       money_cell['num'] is None and money_cell['rate'] is None and money_cell['band'] is None
-                      and money_cell['rate_display'] == 'fewer than 8 of ' + str(money_cell['denom']),
+                      and money_cell['rate_display'] == 'fewer than 12 of ' + str(money_cell['denom']),
                       str(money_cell))
                 check('authenticated reader gets null num and rate (only band) when denom < 50',
                       housing_cell['num'] is None and housing_cell['rate'] is None and housing_cell['band'] is not None,
@@ -850,6 +855,65 @@ def main():
                 conn.execute('rollback;')
             except Exception as exc:
                 check('privilege-surface invariant suite', False, str(exc))
+
+            # 9. Cell-key perturbation: defence against n-1 flooding (tools/pentest/n1_flooding.py)
+            try:
+                conn.execute('alter table nl.raw_t1 alter column rkey set default nl.new_record_key()')
+                conn.execute('alter table nl.raw_t2 alter column rkey set default nl.new_record_key()')
+                reset_data(conn)
+                ev = lambda **k: dict({'institution': 'thuas', 'intake': '2027-feb', 'app_version': 'abcd1234'}, **k)
+                conn.execute('begin;')
+                check('cell-key: client cannot supply its own record key (22023)',
+                      rejects('select nl.ingest_t1_rpc(%s::jsonb)', (json.dumps(ev(event='cohort_joined', rkey=0)),)))
+                conn.execute('rollback;')
+                noise_ok = conn.execute(
+                    'select min(nl.cell_noise(k)) = -4 and max(nl.cell_noise(k)) = 4 and nl.cell_noise(0) = 0 '
+                    'and count(distinct nl.cell_noise(k)) = 9 from generate_series(0, 251) k').fetchone()[0]
+                check('cell-key: noise is -4..+4, all 9 values reachable, key 0 means no noise', noise_ok is True)
+
+                def n1_trial(real_completed):
+                    reset_data(conn)
+                    fakes = ([ev(event='cohort_joined')] * 14 + [ev(event='step_applies', category='housing')] * 19
+                             + [ev(event='step_completed', category='housing')] * 12)
+                    real = [ev(event='cohort_joined'), ev(event='step_applies', category='housing')]
+                    if real_completed:
+                        real.append(ev(event='step_completed', category='housing'))
+                    conn.execute('select nl.ingest_t1_rpc(%s::jsonb)', (json.dumps(fakes + real),))
+                    conn.execute('select nl.accumulate()')
+                    snap = conn.execute("select nl.publish_snapshot('n1')").fetchone()[0]
+                    row = conn.execute("select num, denom from nl.published_cell where snapshot_id = %s and "
+                                       "table_id = 't1_inst_category' and row_key = 'thuas:housing'", (snap,)).fetchone()
+                    return row, snap
+
+                trials = 150
+                dist = {True: {}, False: {}}
+                for real_completed in (True, False):
+                    for _ in range(trials):
+                        row, _snap = n1_trial(real_completed)
+                        dist[real_completed][row] = dist[real_completed].get(row, 0) + 1
+                outcomes = set(dist[True]) | set(dist[False])
+                tvd = sum(abs(dist[True].get(o, 0) - dist[False].get(o, 0)) for o in outcomes) / (2 * trials)
+                accuracy = 0.5 + tvd / 2
+                check('cell-key: n-1 flooding attacker accuracy <= 0.66 (was 1.00 before cell keys; theory ~0.56)',
+                      accuracy <= 0.66, f'accuracy={accuracy:.3f}, outcomes={len(outcomes)}')
+
+                # consistency: an unchanged cell republishes identically (no averaging across snapshots)
+                _row, s1 = n1_trial(True)
+                s2 = conn.execute("select nl.publish_snapshot('n1-repeat')").fetchone()[0]
+                same = conn.execute(
+                    'select count(*) = 0 from (select table_id, row_key, col_key, num, denom from nl.published_cell where snapshot_id = %s '
+                    'except select table_id, row_key, col_key, num, denom from nl.published_cell where snapshot_id = %s) d',
+                    (s1, s2)).fetchone()[0]
+                check('cell-key: unchanged cells republish with identical noise', same is True)
+                bounded = conn.execute(
+                    'select bool_and(abs(p.num - a.num) <= 6 and abs(p.denom - greatest(a.denom, 15)) <= 6) '
+                    'from nl.published_cell p join nl.accumulated_cell a using (table_id, row_key, col_key) '
+                    'where p.snapshot_id = %s', (s2,)).fetchone()[0]
+                check('cell-key: published counts stay within 6 of the true counts (noise 4 + rounding 2)', bounded is True)
+                conn.execute('alter table nl.raw_t1 alter column rkey set default 0')
+                conn.execute('alter table nl.raw_t2 alter column rkey set default 0')
+            except Exception as exc:
+                check('cell-key perturbation suite', False, str(exc))
 
     finally:
         if pg is not None:

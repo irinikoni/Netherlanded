@@ -259,9 +259,10 @@ begin
                           when num <= 5 or (denom - num) <= 5 or rate <= 0.10 or rate >= 0.90 then null
                           else band end,
              'rate_display', case
-               -- published counts are rounded to the nearest 5, so a published 0 or 5 means 0..7 true
-               when num <= 5 then 'fewer than 8 of ' || denom::text
-               when (denom - num) <= 5 then 'all but fewer than 8 of ' || denom::text
+               -- published counts carry -4..+4 cell-key noise and are rounded to 5, so a published
+               -- 0 or 5 means 0..11 true; near the top both counts are noisy, so stay qualitative
+               when num <= 5 then 'fewer than 12 of ' || denom::text
+               when (denom - num) <= 5 then 'almost all of ' || denom::text
                when rate <= 0.10 then '<= 10.0%'
                when rate >= 0.90 then '>= 90.0%'
                when denom < 50 then band::text || '%'

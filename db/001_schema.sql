@@ -262,4 +262,38 @@ as $fn$
          end;
 $fn$;
 
+
+-- Cell-key perturbation (defence against n-1 flooding; see DISCLOSURE_CONTROL.md §3a).
+-- Every raw event gets a secret, server-assigned record key in 0..251. Each published
+-- cell carries the sum of its contributors' keys (mod 252); nl.cell_noise() turns that
+-- cell key into a fixed perturbation of -4..+4 applied before rounding. Clients cannot
+-- choose or see keys, so an attacker who floods a cell with fake events cannot place it
+-- on a rounding boundary, and an unchanged cell always gets the same noise.
+create or replace function nl.new_record_key()
+returns smallint
+language sql
+volatile
+as $fn$
+  select ((get_byte(b, 0) * 256 + get_byte(b, 1)) % 252)::smallint
+    from (select uuid_send(gen_random_uuid()) as b) x;
+$fn$;
+
+create or replace function nl.cell_noise(p_key bigint)
+returns integer
+language sql
+immutable
+as $fn$
+  -- 252 is divisible by 9, so a uniform key gives a uniform -4..+4; key 0 gives 0.
+  select (((coalesce(p_key, 0) % 252) % 9 + 4) % 9 - 4)::integer;
+$fn$;
+
+alter table nl.raw_t1 add column if not exists rkey smallint not null default nl.new_record_key()
+  check (rkey between 0 and 251);
+alter table nl.raw_t2 add column if not exists rkey smallint not null default nl.new_record_key()
+  check (rkey between 0 and 251);
+alter table nl.accumulated_cell add column if not exists num_key   integer not null default 0;
+alter table nl.accumulated_cell add column if not exists denom_key integer not null default 0;
+alter table nl.t2_base add column if not exists joined_key  integer not null default 0;
+alter table nl.t2_base add column if not exists arrived_key integer not null default 0;
+
 commit;

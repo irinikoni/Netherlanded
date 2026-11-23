@@ -179,7 +179,14 @@ check('ingest uses 22023 for shape errors', '22023' in ingest)
 
 check('release folds under an advisory lock', 'pg_advisory_xact_lock' in release)
 check('release enforces the floor', 'denom_true < 15' in release)
-check('release rounds to the nearest five', 'round(num / 5.0) * 5' in release)
+check('release perturbs by cell key then rounds to the nearest five',
+      'nl.cell_noise(num_key)' in release and 'nl.cell_noise(denom_key)' in release and '/ 5.0) * 5' in release)
+check('reference cell noise is -4..+4, uniform over keys 0..251, and key 0 means none',
+      ref.cell_noise(0) == 0 and sorted(set(ref.cell_noise(k) for k in range(252))) == list(range(-4, 5))
+      and all(sum(1 for k in range(252) if ref.cell_noise(k) == v) == 28 for v in range(-4, 5)))
+check('reference applies cell noise before rounding',
+      ref.suppress([{'table_id': 't1_category_totals', 'row': 'money', 'col': '2026-sep', 'num': 12, 'denom': 20,
+                     'num_key': 1, 'denom_key': 0}])[0]['num_pub'] == 15)
 check('release runs the release audit', 'assert_release_safe' in release)
 check('release exposes a json document', 'release_json' in release)
 

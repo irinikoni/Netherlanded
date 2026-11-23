@@ -171,8 +171,9 @@ begin
   insert into nl.stage_cell (table_id, row_key, col_key, num_true, denom_true,
                              num_pub, denom_pub)
   select table_id, row_key, col_key, num, denom,
-         least((round(num / 5.0) * 5)::bigint, (round(denom / 5.0) * 5)::bigint),
-         (round(denom / 5.0) * 5)::bigint
+         least(greatest(0, round((num + nl.cell_noise(num_key)) / 5.0) * 5),
+               greatest(15, round((denom + nl.cell_noise(denom_key)) / 5.0) * 5))::bigint,
+         greatest(15, round((denom + nl.cell_noise(denom_key)) / 5.0) * 5)::bigint
     from nl.accumulated_cell;
 
   -- 1. floor: fewer than fifteen true respondents (or < 15 distinct student contributors) is never published
@@ -223,7 +224,9 @@ begin
                      from nl.t2_base b
                     where b.intake = s.col_key), 0) < 15;
 
-  -- 2. round to the nearest multiple of five (unbiased), then derive the rate and its five point band
+  -- 2. perturb by the cell key (-4..+4, fixed per cell contents, secret to clients), round to the
+  --    nearest multiple of five, then derive the rate and its five point band. Published denominators
+  --    are clamped to at least 15 (only cells whose true denominator passed the floor are published).
   update nl.stage_cell
      set rate = least(1.000, greatest(0.000, round(num_pub::numeric / denom_pub, 3))),
          band = least(100, greatest(0, (round(num_pub::numeric * 20 / denom_pub) * 5)::integer))

@@ -23,6 +23,16 @@ def round_down_5(n):
     return (n // ROUND_TO) * ROUND_TO
 
 
+NOISE_MOD = 252  # record keys are 0..251; 252 is divisible by 9
+NOISE_HALF_WIDTH = 4
+
+
+def cell_noise(key):
+    """Mirror of nl.cell_noise(): fixed -4..+4 perturbation from a cell key; key 0 gives 0."""
+    k = (int(key or 0) % NOISE_MOD) % (2 * NOISE_HALF_WIDTH + 1)
+    return (k + NOISE_HALF_WIDTH) % (2 * NOISE_HALF_WIDTH + 1) - NOISE_HALF_WIDTH
+
+
 def round_nearest_5(n):
     """Unbiased rounding to the nearest multiple of five (half away from zero, like SQL round())."""
     if n <= 0:
@@ -93,8 +103,9 @@ def suppress(cells, previous_published=None, previous_suppressed=None):
     for raw in cells:
         num = int(raw['num'])
         denom = int(raw['denom'])
-        denom_pub = round_nearest_5(denom)
-        num_pub = min(round_nearest_5(num), denom_pub)
+        # cell-key perturbation, then rounding; published denominators are clamped to >= FLOOR
+        denom_pub = max(FLOOR, round_nearest_5(denom + cell_noise(raw.get('denom_key', 0))))
+        num_pub = min(round_nearest_5(num + cell_noise(raw.get('num_key', 0))), denom_pub)
         stage.append({
             'table_id': raw['table_id'],
             'row': raw['row'],
