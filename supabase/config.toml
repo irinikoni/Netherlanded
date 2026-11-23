@@ -1,0 +1,26 @@
+# Copyright (c) 2026 Eirini Konidari. All rights reserved.
+# Deployed by the Supabase GitHub integration on push to main.
+# supabase/migrations and supabase/functions/*/index.ts are generated from db/ and edge/
+# by tools/sync_supabase.py; edit the sources there.
+project_id = "netherlanded"
+
+[api]
+enabled = true
+# nl: ingest RPCs reached by edge/ingest with Content-Profile: nl.
+# nl_content: editor RPCs reached by edge/editor.
+schemas = ["public", "graphql_public", "nl", "nl_content"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+# The functions gate themselves: they fail closed without NL_PROXY_SECRET and check the
+# x-nl-proxy-secret header in constant time. The editor forwards the caller's JWT to
+# PostgREST, which verifies it. The gateway JWT check is therefore off, so publishable
+# (non-JWT) keys and the proxy work.
+[functions.ingest]
+verify_jwt = false
+
+[functions.stats]
+verify_jwt = false
+
+[functions.editor]
+verify_jwt = false

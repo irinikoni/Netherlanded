@@ -41,6 +41,9 @@ jobs:
       - name: Check in-app legal text matches TERMS_AND_PRIVACY.md
         run: python3 tools/sync_legal.py --check
 
+      - name: Check supabase/ deploy mirror matches db/ and edge/
+        run: python3 tools/sync_supabase.py --check
+
       - name: Run live PostgreSQL 16 migrations, RLS, editor scoping & concurrency suite
         run: python3 tools/run_pg_tests.py
 
