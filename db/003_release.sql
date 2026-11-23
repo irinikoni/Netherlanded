@@ -160,6 +160,7 @@ declare
   v_prev2   bigint;
   v_hit_row integer := 0;
   v_hit_col integer := 0;
+  v_hit_sec integer := 0;
   v_pass    integer := 0;
   v_out     integer := 0;
 begin
@@ -170,7 +171,8 @@ begin
   insert into nl.stage_cell (table_id, row_key, col_key, num_true, denom_true,
                              num_pub, denom_pub)
   select table_id, row_key, col_key, num, denom,
-         least((num / 5) * 5, (denom / 5) * 5), (denom / 5) * 5
+         least((round(num / 5.0) * 5)::bigint, (round(denom / 5.0) * 5)::bigint),
+         (round(denom / 5.0) * 5)::bigint
     from nl.accumulated_cell;
 
   -- 1. floor: fewer than fifteen true respondents (or < 15 distinct student contributors) is never published
@@ -221,7 +223,7 @@ begin
                      from nl.t2_base b
                     where b.intake = s.col_key), 0) < 15;
 
-  -- 2. round to a multiple of five, then derive the rate and its five point band
+  -- 2. round to the nearest multiple of five (unbiased), then derive the rate and its five point band
   update nl.stage_cell
      set rate = least(1.000, greatest(0.000, round(num_pub::numeric / denom_pub, 3))),
          band = least(100, greatest(0, (round(num_pub::numeric * 20 / denom_pub) * 5)::integer))
@@ -234,7 +236,8 @@ begin
     from nl.snapshot where published
    order by snapshot_id desc offset 1 limit 1;
 
-  -- 3. delta: a move under five percentage points against the cell's most recent published release
+  -- 3. delta: a move under max(5 points, 5/denom) against the cell's most recent published release
+  --    (so on small cells a change of fewer than ~5 people is never published)
   if v_prev1 is not null then
     update nl.stage_cell s
        set reason = 'delta', rate = null, band = null
@@ -248,7 +251,8 @@ begin
        and p.col_key = s.col_key
        and s.reason is null
        and abs(least(1.00000, greatest(0.00000, round(s.num_true::numeric / s.denom_true, 5))) - p.rate_true) > 0
-       and abs(least(1.00000, greatest(0.00000, round(s.num_true::numeric / s.denom_true, 5))) - p.rate_true) < 0.05;
+       and abs(least(1.00000, greatest(0.00000, round(s.num_true::numeric / s.denom_true, 5))) - p.rate_true)
+           < greatest(0.05, 5.0 / s.denom_true);
 
     -- 4. sticky: stay withheld for two further releases (never re-triggering on prior 'sticky' or 'floor')
     update nl.stage_cell s
@@ -307,7 +311,31 @@ begin
        and g.npub = 1;
     get diagnostics v_hit_col = row_count;
 
-    exit when v_hit_row = 0 and v_hit_col = 0;
+    -- 5b. secondary: a lone withheld cell in an institution-scoped column can be
+    -- recovered from the institution total minus its siblings, so also withhold
+    -- the smallest published sibling in that group.
+    update nl.stage_cell s
+       set reason = 'complementary', rate = null, band = null
+      from (select distinct on (s2.table_id, split_part(s2.row_key, ':', 1), s2.col_key)
+                   s2.table_id, s2.row_key, s2.col_key
+              from nl.stage_cell s2
+              join nl.release_table rt on rt.table_id = s2.table_id
+             where rt.row_axis in ('inst_category', 'inst_step', 'inst_region')
+               and s2.reason is null
+               and (select count(*)
+                      from nl.stage_cell s3
+                     where s3.table_id = s2.table_id
+                       and split_part(s3.row_key, ':', 1) = split_part(s2.row_key, ':', 1)
+                       and s3.col_key = s2.col_key
+                       and s3.reason is not null) = 1
+             order by s2.table_id, split_part(s2.row_key, ':', 1), s2.col_key,
+                      s2.denom_true, s2.row_key) v
+     where s.table_id = v.table_id
+       and s.row_key = v.row_key
+       and s.col_key = v.col_key;
+    get diagnostics v_hit_sec = row_count;
+
+    exit when v_hit_row = 0 and v_hit_col = 0 and v_hit_sec = 0;
   end loop;
 
   -- 6. over_suppression: defensive sweep across both axes
@@ -427,6 +455,22 @@ begin
                 group by u.table_id, 2, u.col_key) g
               where g.total > 1 and g.npub = 1) then
     raise exception 'snapshot % exposes a lone published cell along a column', p_snapshot
+      using errcode = '23514';
+  end if;
+  if exists (select 1 from (
+               select u.table_id, split_part(u.row_key, ':', 1) as scope_key, u.col_key,
+                      count(*) as total,
+                      count(*) filter (where u.src = 's') as nsup
+                 from (select table_id, row_key, col_key, 'p' as src
+                         from nl.published_cell where snapshot_id = p_snapshot
+                       union all
+                       select table_id, row_key, col_key, 's'
+                         from nl.suppressed_cell where snapshot_id = p_snapshot) u
+                 join nl.release_table rt on rt.table_id = u.table_id
+                where rt.row_axis in ('inst_category', 'inst_step', 'inst_region')
+                group by u.table_id, 2, u.col_key) g
+              where g.total > 1 and g.nsup = 1) then
+    raise exception 'snapshot % leaves a lone withheld cell in an institution-scoped column', p_snapshot
       using errcode = '23514';
   end if;
 end;

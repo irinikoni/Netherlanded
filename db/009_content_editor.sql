@@ -130,7 +130,7 @@ create table if not exists nl_content.service (
   municipality_id    text not null check (municipality_id ~ '^[a-z0-9-]{2,64}$'),
   for_institution_id text,
   description        text not null check (length(trim(description)) between 2 and 2000),
-  url                text not null constraint service_url_check check (url ~ '^https?://[^\s"''<>]+$'),
+  url                text not null constraint service_url_check check (url ~ '^https://[^\s"''<>\\]+$'),
   accepting_students text,
   related_step_id    text,
   source_id          text,
@@ -144,7 +144,7 @@ alter table nl_content.service add constraint service_service_type_check
   check (service_type in ('gp', 'housing', 'support', 'community', 'government', 'banking', 'legal', 'municipal', 'other'));
 alter table nl_content.service drop constraint if exists service_url_check;
 alter table nl_content.service add constraint service_url_check
-  check (url ~ '^https?://[^\s"''<>]+$');
+  check (url ~ '^https://[^\s"''<>\\]+$');
 
 create table if not exists nl_content.step_local (
   step_id            text not null check (step_id ~ '^[a-z0-9_-]{2,64}$'),
@@ -335,8 +335,13 @@ begin
       raise exception 'each link must be a JSON object' using errcode = '22023';
     end if;
     v_url := coalesce(v_item ->> 'url', '');
-    if v_url !~ '^https?://[^\s"''<>]+$' then
-      raise exception 'invalid link url scheme' using errcode = '22023';
+    if v_url !~ '^https://[^\s"''<>\\]+$' then
+      raise exception 'invalid link url (https only)' using errcode = '22023';
+    end if;
+    if v_item ? 'label' and (jsonb_typeof(v_item -> 'label') <> 'string'
+        or length(trim(v_item ->> 'label')) not between 1 and 200
+        or (v_item ->> 'label') ~ '[<>]') then
+      raise exception 'link label must be 1..200 characters without < or >' using errcode = '22023';
     end if;
   end loop;
   return p_links;
@@ -408,7 +413,7 @@ begin
              coalesce(
                v_ctx.role = 'super_admin'
                or s.for_institution_id = v_ctx.institution_id
-               or (s.for_institution_id is null and public.can_edit_city(s.municipality_id)),
+               or (s.for_institution_id is null and public.can_edit_city(s.municipality_id) and public.can_edit_city(s.city_id)),
                false
              )
            )
@@ -568,18 +573,23 @@ begin
   if v_name is null or v_type is null or v_city is null or v_muni is null or v_desc is null or v_url is null then
     raise exception 'missing required service fields' using errcode = '22023';
   end if;
-  if v_url !~ '^https?://[^\s"''<>]+$' then
-    raise exception 'invalid url scheme' using errcode = '22023';
+  if v_url !~ '^https://[^\s"''<>\\]+$' then
+    raise exception 'invalid url (https only)' using errcode = '22023';
   end if;
 
-  select * into v_existing from nl_content.service where service_id = v_service_id;
+  -- Serialize writers of this service_id so the ownership check below cannot be
+  -- raced by a concurrent insert of the same id (check-then-upsert TOCTOU).
+  perform pg_advisory_xact_lock(hashtext('nl_content.service:' || v_service_id));
+  select * into v_existing from nl_content.service where service_id = v_service_id for update;
   v_has_old := found;
   if v_has_old then
     v_before_json := to_jsonb(v_existing);
     if v_ctx.role <> 'super_admin' then
       if not coalesce(
         v_existing.for_institution_id = v_ctx.institution_id
-        or (v_existing.for_institution_id is null and public.can_edit_city(v_existing.municipality_id)),
+        or (v_existing.for_institution_id is null
+            and public.can_edit_city(v_existing.municipality_id)
+            and public.can_edit_city(v_existing.city_id)),
         false
       ) then
         raise exception 'forbidden: cannot modify existing service outside institution scope' using errcode = '42501';
@@ -590,7 +600,8 @@ begin
   if v_ctx.role <> 'super_admin' then
     if not coalesce(
       v_for_inst = v_ctx.institution_id
-      or (v_for_inst is null and public.can_edit_city(v_muni)),
+      -- municipal cards: both the city they are listed under and the municipality must be editable
+      or (v_for_inst is null and public.can_edit_city(v_muni) and public.can_edit_city(v_city)),
       false
     ) then
       raise exception 'forbidden: shared city or foreign institution requires super_admin or institution override' using errcode = '42501';
@@ -852,7 +863,7 @@ begin
     end if;
     if v_ctx.role <> 'super_admin' and not coalesce(
       v_svc.for_institution_id = v_ctx.institution_id
-      or (v_svc.for_institution_id is null and public.can_edit_city(v_svc.municipality_id)),
+      or (v_svc.for_institution_id is null and public.can_edit_city(v_svc.municipality_id) and public.can_edit_city(v_svc.city_id)),
       false
     ) then
       raise exception 'forbidden service scope' using errcode = '42501';

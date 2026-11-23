@@ -67,6 +67,10 @@ This will suppress many pilot results. **Documented alternative**, only after a 
 - Suppress an updated value if it rests on **fewer than 5** new contributions since the previous snapshot. Show the previous value instead.
 - Round percentages to whole points; for denominators under 50, round to the nearest 5.
 
+### Known limitation: contributor counts are self-reported
+
+The system holds no identifiers by design, so it cannot de-duplicate devices. The 15-contributor floor counts `cohort_joined` events, and Tier 2 denominators count events. A reinstall, a repeated send, or deliberately fabricated events can inflate a count past the floor or skew a rate. Mitigations: gateway-only ingest (`nl.check_ingest_gateway()`), per-IP limits at Nginx, the per-tier event circuit breaker, and the human people-check before each release. The DPIA must state this residual risk.
+
 ## 6. Background knowledge
 
 A group of 15 is not automatically anonymous if the university already knows who is in it: who contacted the International Office, who received a CAK letter, who lives in a certain municipality, who has a certain immigration requirement. This is why Tier 1 reports carry no region, municipality, campus or deadline dimensions, and why those stay in Tier 2.
@@ -94,7 +98,7 @@ A group of 15 is not automatically anonymous if the university already knows who
 
 ## 9. Build list
 
-- [x] `nl.accumulate()`, `nl.build_stage()`, `nl.assert_release_safe()`, `nl.publish_snapshot()`, and `nl.release_json()` implemented in [`db/003_release.sql`](db/003_release.sql) (15-person floor, rounding to 5, `< 5`pp delta, 2-release sticky suppression, 2D complementary suppression, and withheld bucket reporting).
+- [x] `nl.accumulate()`, `nl.build_stage()`, `nl.assert_release_safe()`, `nl.publish_snapshot()`, and `nl.release_json()` implemented in [`db/003_release.sql`](db/003_release.sql) (15-person floor, unbiased rounding to the **nearest** 5, delta suppression below `max(5pp, 5/denominator)` so a change resting on fewer than ~5 people is never published, 2-release sticky suppression, 2D complementary suppression plus secondary suppression of a lone withheld cell in an institution-scoped column, and withheld bucket reporting for pooled readers only).
 - [x] Separate Tier 1 (`nl.ingest_t1` / `nl.raw_t1`) and Tier 2 (`nl.ingest_t2` / `nl.raw_t2`) endpoints and tables in [`db/001_schema.sql`](db/001_schema.sql) and [`db/002_ingest.sql`](db/002_ingest.sql).
 - [x] Per-institution tenant scoping, RLS, tail redaction, and `split_part` isolation implemented in [`db/006_security_rls_and_scoping.sql`](db/006_security_rls_and_scoping.sql) and [`db/008_scoped_insights.sql`](db/008_scoped_insights.sql).
 - [x] Edge IP/UA stripping in RAM, ≤ 24h IP-free logs, per-IP `30r/m` rate limiting, and `X-NL-Proxy-Secret` bypass protection configured in [`edge/security-headers.conf`](edge/security-headers.conf) and [`edge/*`](edge/ingest/index.ts); Tier 1 raw purge tightened to **24h** in [`db/004_retention.sql`](db/004_retention.sql).

@@ -42,9 +42,61 @@ create table if not exists nl.ingest_rate_limits (
 
 alter table nl.ingest_rate_limits enable row level security;
 
+-- Gateway secret: when a row exists, ingest RPCs only accept requests whose
+-- x-nl-ingest-secret header (forwarded by the edge function) hashes to it.
+-- This closes the direct /rest/v1/rpc path that the public anon key would
+-- otherwise open around the edge function and Nginx per-IP limits.
+-- Set in production with:
+--   insert into nl.ingest_gateway (secret_sha256)
+--   values (encode(sha256(convert_to('<NL_INGEST_SECRET>', 'UTF8')), 'hex'));
+create table if not exists nl.ingest_gateway (
+  id            boolean primary key default true check (id),
+  secret_sha256 text not null check (secret_sha256 ~ '^[0-9a-f]{64}$')
+);
+alter table nl.ingest_gateway enable row level security;
+
+create or replace function nl.check_ingest_gateway()
+returns void
+language plpgsql
+stable
+security definer
+set search_path = nl, pg_temp
+as $fn$
+declare
+  v_expected text;
+  v_supplied text;
+begin
+  select secret_sha256 into v_expected from nl.ingest_gateway where id;
+  if v_expected is null then
+    return;  -- not configured (local/dev); production must configure it (see RELEASE_CHECKLIST.md)
+  end if;
+  v_supplied := coalesce(
+    nullif(current_setting('request.headers', true), '')::jsonb ->> 'x-nl-ingest-secret', '');
+  if encode(pg_catalog.sha256(convert_to(v_supplied, 'UTF8')), 'hex') <> v_expected then
+    raise exception 'direct_access_forbidden' using errcode = '42501';
+  end if;
+end;
+$fn$;
+
+-- Events in a payload (same shapes as nl.normalize_batch); used to weight the limiter.
+create or replace function nl.payload_event_count(p jsonb)
+returns integer
+language sql
+immutable
+as $fn$
+  select case
+    when jsonb_typeof(p) = 'array' then jsonb_array_length(p)
+    when jsonb_typeof(p) = 'object' and jsonb_typeof(p -> 'events') = 'array'
+      then jsonb_array_length(p -> 'events')
+    else 1
+  end;
+$fn$;
+
+drop function if exists nl.check_ingest_rate_limit(smallint, integer);
 create or replace function nl.check_ingest_rate_limit(
   p_tier         smallint,
-  p_max_per_hour integer
+  p_max_per_hour integer,
+  p_weight       integer default 1
 )
 returns boolean
 language plpgsql
@@ -65,15 +117,16 @@ declare
     'hex'
   );
   v_cnt     integer;
-  v_cap     integer := greatest(p_max_per_hour, 60000);
+  v_cap     integer := p_max_per_hour;
+  v_weight  integer := greatest(1, least(coalesce(p_weight, 1), 100));
 begin
   delete from nl.ingest_rate_limits
    where bucket_hour < (v_hour - interval '2 hours');
 
   insert into nl.ingest_rate_limits (bucket_hour, client_hash, tier, req_count)
-  values (v_hour, v_hash, p_tier, 1)
+  values (v_hour, v_hash, p_tier, v_weight)
   on conflict (bucket_hour, client_hash, tier)
-  do update set req_count = nl.ingest_rate_limits.req_count + 1
+  do update set req_count = nl.ingest_rate_limits.req_count + v_weight
   returning req_count into v_cnt;
 
   return v_cnt <= v_cap;
@@ -89,7 +142,9 @@ security definer
 set search_path = nl, pg_temp
 as $fn$
 begin
-  if not nl.check_ingest_rate_limit(1::smallint, 60000) then
+  perform nl.check_ingest_gateway();
+  -- cap counts events, not requests (a request carries up to 100 events)
+  if not nl.check_ingest_rate_limit(1::smallint, 60000, nl.payload_event_count(p)) then
     raise exception 'rate_limit_exceeded' using errcode = 'P0001';
   end if;
   return nl.ingest_t1(p);
@@ -104,7 +159,9 @@ security definer
 set search_path = nl, pg_temp
 as $fn$
 begin
-  if not nl.check_ingest_rate_limit(2::smallint, 60000) then
+  perform nl.check_ingest_gateway();
+  -- cap counts events, not requests (a request carries up to 100 events)
+  if not nl.check_ingest_rate_limit(2::smallint, 60000, nl.payload_event_count(p)) then
     raise exception 'rate_limit_exceeded' using errcode = 'P0001';
   end if;
   return nl.ingest_t2(p);
@@ -150,6 +207,12 @@ begin
     raise exception 'unknown institution %', p_institution using errcode = '22023';
   end if;
 
+  -- Scoped (non-pooled) readers only ever see the latest published snapshot:
+  -- comparing older releases would allow differencing across snapshots.
+  if p_snapshot is not null and not v_allow_pooled
+     and p_snapshot is distinct from (select max(snapshot_id) from nl.snapshot where published) then
+    raise exception 'historic snapshots require pooled access' using errcode = '42501';
+  end if;
   v_snap := p_snapshot;
   if v_snap is null then
     select snapshot_id into v_snap
@@ -186,18 +249,21 @@ begin
              'col', col_key,
              'col_label', nl.dim_label(r.col_axis, col_key),
              'num', case when v_allow_pooled then num
-                         when num < 5 or (denom - num) < 5 or rate <= 0.10 or rate >= 0.90 or denom < 50 then null
+                         when num <= 5 or (denom - num) <= 5 or rate <= 0.10 or rate >= 0.90 or denom < 50 then null
                          else num end,
              'denom', denom,
              'rate', case when v_allow_pooled then rate
-                          when num < 5 or (denom - num) < 5 or rate <= 0.10 or rate >= 0.90 or denom < 50 then null
+                          when num <= 5 or (denom - num) <= 5 or rate <= 0.10 or rate >= 0.90 or denom < 50 then null
                           else rate end,
              'band', case when v_allow_pooled then band
-                          when num < 5 or (denom - num) < 5 or rate <= 0.10 or rate >= 0.90 then null
+                          when num <= 5 or (denom - num) <= 5 or rate <= 0.10 or rate >= 0.90 then null
                           else band end,
              'rate_display', case
-               when num < 5 or rate <= 0.10 then '<= 10.0%'
-               when (denom - num) < 5 or rate >= 0.90 then '>= 90.0%'
+               -- published counts are rounded to the nearest 5, so a published 0 or 5 means 0..7 true
+               when num <= 5 then 'fewer than 8 of ' || denom::text
+               when (denom - num) <= 5 then 'all but fewer than 8 of ' || denom::text
+               when rate <= 0.10 then '<= 10.0%'
+               when rate >= 0.90 then '>= 90.0%'
                when denom < 50 then band::text || '%'
                else round(rate * 100)::integer::text || '%'
              end) order by row_key, col_key), '[]'::jsonb)
@@ -213,7 +279,7 @@ begin
              'col', col_key,
              'col_label', nl.dim_label(r.col_axis, col_key),
              'reason', case when v_allow_pooled then reason else null end,
-             'bucket', bucket) order by row_key, col_key), '[]'::jsonb)
+             'bucket', case when v_allow_pooled then bucket else null end) order by row_key, col_key), '[]'::jsonb)
       into v_hidden
       from nl.suppressed_cell
      where snapshot_id = v_snap
@@ -260,7 +326,9 @@ revoke all on function nl.publish_snapshot(text) from public;
 revoke all on function nl.purge_raw() from public;
 revoke all on function nl.release_json(bigint) from public;
 revoke all on function nl.stats_json() from public;
-revoke all on function nl.check_ingest_rate_limit(smallint, integer) from public;
+revoke all on function nl.check_ingest_rate_limit(smallint, integer, integer) from public;
+revoke all on function nl.check_ingest_gateway() from public;
+revoke all on function nl.payload_event_count(jsonb) from public;
 revoke all on function nl.ingest_t1(jsonb) from public;
 revoke all on function nl.ingest_t2(jsonb) from public;
 revoke all on function nl.ingest_t1_rpc(jsonb) from public;
@@ -279,13 +347,13 @@ begin
   if exists (select 1 from pg_roles where rolname = 'anon') then
     execute 'grant usage on schema nl to anon';
     execute 'grant execute on function nl.ingest_t1_rpc(jsonb), nl.ingest_t2_rpc(jsonb) to anon';
-    execute 'revoke execute on function nl.accumulate(), nl.build_stage(), nl.publish_snapshot(text), nl.purge_raw(), nl.release_json(bigint), nl.stats_json(), nl.check_ingest_rate_limit(smallint, integer), nl.ingest_t1(jsonb), nl.ingest_t2(jsonb), nl.release_json_for_institution(text, bigint), nl.health(), nl.assert_release_safe(bigint), nl.bucket(bigint), nl.dim_label(text, text), nl.normalize_batch(jsonb), nl.reject_identity(jsonb), nl.check_hint(jsonb) from anon';
+    execute 'revoke execute on function nl.accumulate(), nl.build_stage(), nl.publish_snapshot(text), nl.purge_raw(), nl.release_json(bigint), nl.stats_json(), nl.check_ingest_rate_limit(smallint, integer, integer), nl.check_ingest_gateway(), nl.payload_event_count(jsonb), nl.ingest_t1(jsonb), nl.ingest_t2(jsonb), nl.release_json_for_institution(text, bigint), nl.health(), nl.assert_release_safe(bigint), nl.bucket(bigint), nl.dim_label(text, text), nl.normalize_batch(jsonb), nl.reject_identity(jsonb), nl.check_hint(jsonb) from anon';
   end if;
 
   if exists (select 1 from pg_roles where rolname = 'authenticated') then
     execute 'grant usage on schema nl to authenticated';
     execute 'grant execute on function nl.ingest_t1_rpc(jsonb), nl.ingest_t2_rpc(jsonb), nl.release_json_for_institution(text, bigint) to authenticated';
-    execute 'revoke execute on function nl.accumulate(), nl.build_stage(), nl.publish_snapshot(text), nl.purge_raw(), nl.release_json(bigint), nl.stats_json(), nl.check_ingest_rate_limit(smallint, integer), nl.ingest_t1(jsonb), nl.ingest_t2(jsonb), nl.health(), nl.assert_release_safe(bigint), nl.bucket(bigint), nl.dim_label(text, text), nl.normalize_batch(jsonb), nl.reject_identity(jsonb), nl.check_hint(jsonb) from authenticated';
+    execute 'revoke execute on function nl.accumulate(), nl.build_stage(), nl.publish_snapshot(text), nl.purge_raw(), nl.release_json(bigint), nl.stats_json(), nl.check_ingest_rate_limit(smallint, integer, integer), nl.check_ingest_gateway(), nl.payload_event_count(jsonb), nl.ingest_t1(jsonb), nl.ingest_t2(jsonb), nl.health(), nl.assert_release_safe(bigint), nl.bucket(bigint), nl.dim_label(text, text), nl.normalize_batch(jsonb), nl.reject_identity(jsonb), nl.check_hint(jsonb) from authenticated';
   end if;
 end
 $grants$;

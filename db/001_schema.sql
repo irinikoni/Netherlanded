@@ -93,7 +93,7 @@ create table if not exists nl.raw_t1 (
   event       nl.t1_event not null,
   category    nl.category,
   app_version text not null,
-  received_at timestamptz not null default now(),
+  received_at timestamptz not null default date_trunc('hour', now()),
   week_start  date not null default ((date_trunc('week', now()))::date),
   fold_run    bigint,
   constraint raw_t1_intake_chk check (intake ~ '^[0-9]{4}-(sep|feb)$'),
@@ -112,7 +112,7 @@ create table if not exists nl.raw_t2 (
   event       nl.t2_event not null,
   step        text,
   high_risk   boolean,
-  received_at timestamptz not null default now(),
+  received_at timestamptz not null default date_trunc('hour', now()),
   week_start  date not null default ((date_trunc('week', now()))::date),
   fold_run    bigint,
   constraint raw_t2_region_chk check (region ~ '^[a-z0-9_-]{2,32}$'),
@@ -123,6 +123,11 @@ create table if not exists nl.raw_t2 (
 create index if not exists raw_t2_unfolded_idx on nl.raw_t2 (id) where fold_run is null;
 create index if not exists raw_t2_received_idx on nl.raw_t2 (received_at);
 create index if not exists raw_t2_fold_run_idx on nl.raw_t2 (fold_run) where fold_run is not null;
+
+-- Hour-truncated arrival times: exact timestamps could link a tier-1 and a
+-- tier-2 event sent in the same moment. Re-applied for existing databases.
+alter table nl.raw_t1 alter column received_at set default date_trunc('hour', now());
+alter table nl.raw_t2 alter column received_at set default date_trunc('hour', now());
 
 create table if not exists nl.unmapped_value (
   id         bigserial primary key,

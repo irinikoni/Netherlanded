@@ -23,6 +23,13 @@ def round_down_5(n):
     return (n // ROUND_TO) * ROUND_TO
 
 
+def round_nearest_5(n):
+    """Unbiased rounding to the nearest multiple of five (half away from zero, like SQL round())."""
+    if n <= 0:
+        return 0
+    return int((Decimal(n) / ROUND_TO).quantize(Decimal('1'), rounding=ROUND_HALF_UP)) * ROUND_TO
+
+
 def round_rate(num, denom):
     if denom <= 0:
         return None
@@ -86,8 +93,8 @@ def suppress(cells, previous_published=None, previous_suppressed=None):
     for raw in cells:
         num = int(raw['num'])
         denom = int(raw['denom'])
-        denom_pub = round_down_5(denom)
-        num_pub = min(round_down_5(num), denom_pub)
+        denom_pub = round_nearest_5(denom)
+        num_pub = min(round_nearest_5(num), denom_pub)
         stage.append({
             'table_id': raw['table_id'],
             'row': raw['row'],
@@ -123,7 +130,8 @@ def suppress(cells, previous_published=None, previous_suppressed=None):
         true_rate = (Decimal(c['num_true']) / Decimal(c['denom_true'])).quantize(Decimal('0.00001'), rounding=ROUND_HALF_UP)
         true_rate = max(Decimal('0.00000'), min(Decimal('1.00000'), true_rate))
         diff = abs(true_rate - prev)
-        if Decimal('0') < diff < DELTA_MIN:
+        threshold = max(DELTA_MIN, Decimal(ROUND_TO) / Decimal(c['denom_true']))
+        if Decimal('0') < diff < threshold:
             c['reason'] = 'delta'
             c['rate'] = None
             c['band'] = None
@@ -157,6 +165,24 @@ def suppress(cells, previous_published=None, previous_suppressed=None):
                     victim['rate'] = None
                     victim['band'] = None
                     changed = True
+        # 5b. secondary: a lone withheld cell in an institution-scoped column is
+        # recoverable from the institution total, so withhold its smallest sibling too
+        groups = {}
+        for c in stage:
+            gk = _col_group_key(c)
+            if gk[1]:
+                groups.setdefault(gk, []).append(c)
+        for members in groups.values():
+            if len(members) <= 1:
+                continue
+            withheld = [m for m in members if m['reason'] is not None]
+            open_cells = [m for m in members if m['reason'] is None]
+            if len(withheld) == 1 and open_cells:
+                victim = min(open_cells, key=lambda m: (m['denom_true'], str(m['row'])))
+                victim['reason'] = 'complementary'
+                victim['rate'] = None
+                victim['band'] = None
+                changed = True
         if not changed:
             break
 
@@ -205,5 +231,9 @@ def check_release(stage):
                 open_cells = [m for m in members if m['reason'] is None]
                 if len(open_cells) == 1:
                     problems.append(('lone_cell', axis, key))
+                if axis == 'col' and key[1]:
+                    withheld = [m for m in members if m['reason'] is not None]
+                    if len(withheld) == 1:
+                        problems.append(('lone_withheld', axis, key))
 
     return problems

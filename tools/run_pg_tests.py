@@ -197,8 +197,9 @@ def main():
                 cat_tbl = [t for t in doc['tables'] if t['table_id'] == 't1_inst_category'][0]
                 money_cell = [c for c in cat_tbl['cells'] if c['row'] == 'thuas:money'][0]
                 housing_cell = [c for c in cat_tbl['cells'] if c['row'] == 'thuas:housing'][0]
-                check('authenticated reader gets null num/rate/band and <= 10.0% on tail-capped cell',
-                      money_cell['num'] is None and money_cell['rate'] is None and money_cell['band'] is None and money_cell['rate_display'] == '<= 10.0%',
+                check('authenticated reader gets null num/rate/band and a count-range label on tail-capped cell',
+                      money_cell['num'] is None and money_cell['rate'] is None and money_cell['band'] is None
+                      and money_cell['rate_display'] == 'fewer than 8 of ' + str(money_cell['denom']),
                       str(money_cell))
                 check('authenticated reader gets null num and rate (only band) when denom < 50',
                       housing_cell['num'] is None and housing_cell['rate'] is None and housing_cell['band'] is not None,
@@ -265,16 +266,12 @@ def main():
                 conn.execute('select nl.accumulate()')
                 s3 = conn.execute("select nl.publish_snapshot('delta-r3')").fetchone()[0]
                 r3 = conn.execute("select reason::text from nl.suppressed_cell where snapshot_id=%s and table_id='t1_inst_category' and row_key='thuas:housing'", (s3,)).fetchone()
-                ingest_t1_chunked(conn, [
-                    {'institution': 'thuas', 'intake': '2026-sep', 'event': 'cohort_joined', 'app_version': '3b32b5914fb6bdfc'},
-                    {'institution': 'thuas', 'intake': '2026-sep', 'event': 'cohort_joined', 'app_version': '3b32b5914fb6bdfc'},
-                    {'institution': 'thuas', 'intake': '2026-sep', 'event': 'step_applies', 'category': 'housing', 'app_version': '3b32b5914fb6bdfc'},
-                    {'institution': 'thuas', 'intake': '2026-sep', 'event': 'step_applies', 'category': 'housing', 'app_version': '3b32b5914fb6bdfc'},
-                    {'institution': 'thuas', 'intake': '2026-sep', 'event': 'step_completed', 'category': 'housing', 'app_version': '3b32b5914fb6bdfc'},
-                    {'institution': 'thuas', 'intake': '2026-sep', 'event': 'step_completed', 'category': 'housing', 'app_version': '3b32b5914fb6bdfc'},
-                    {'institution': 'thuas', 'intake': '2026-sep', 'event': 'step_completed', 'category': 'housing', 'app_version': '3b32b5914fb6bdfc'},
-                    {'institution': 'thuas', 'intake': '2026-sep', 'event': 'step_completed', 'category': 'housing', 'app_version': '3b32b5914fb6bdfc'},
-                ])
+                # R4 must be a real move of >= 5 people (11/16 -> 25/28): the delta rule now
+                # withholds any change smaller than max(5pp, 5/denom), i.e. fewer than ~5 people.
+                ingest_t1_chunked(conn,
+                    [{'institution': 'thuas', 'intake': '2026-sep', 'event': 'step_applies', 'category': 'housing', 'app_version': '3b32b5914fb6bdfc'} for _ in range(12)]
+                    + [{'institution': 'thuas', 'intake': '2026-sep', 'event': 'step_completed', 'category': 'housing', 'app_version': '3b32b5914fb6bdfc'} for _ in range(14)]
+                )
                 conn.execute('select nl.accumulate()')
                 s4 = conn.execute("select nl.publish_snapshot('sticky-r4')").fetchone()[0]
                 r4 = conn.execute("select reason::text from nl.suppressed_cell where snapshot_id=%s and table_id='t1_inst_category' and row_key='thuas:housing'", (s4,)).fetchone()
@@ -735,6 +732,66 @@ def main():
                       len(set(svcs)) == 4 and conc_logs == 4, f'svcs={svcs}, logs={conc_logs}')
             except Exception as exc:
                 check('multi-connection concurrency suite', False, str(exc))
+
+            # 7. Review-fix regressions (ingest strictness, gateway secret, scoping, editor city_id, https)
+            try:
+                def rejects(sql, params, err=psycopg.errors.InvalidParameterValue):
+                    try:
+                        conn.execute('savepoint sp_rf')
+                        conn.execute(sql, params)
+                        conn.execute('rollback to savepoint sp_rf')
+                        return False
+                    except err:
+                        conn.execute('rollback to savepoint sp_rf')
+                        return True
+
+                conn.execute('begin;')
+                base1 = {'institution': 'thuas', 'intake': '2026-sep', 'event': 'cohort_joined', 'app_version': '3b32b5914fb6bdfc'}
+                check('fix: tier-1 rejects the unused n field',
+                      rejects('select nl.ingest_t1_rpc(%s::jsonb)', (json.dumps(dict(base1, n=3)),)))
+                check('fix: tier-2 rejects high_risk on non-scam events',
+                      rejects('select nl.ingest_t2_rpc(%s::jsonb)', (json.dumps({'institution': 'thuas', 'region': 'eu_eea', 'intake': '2026-sep', 'event': 'joined', 'high_risk': True}),)))
+                conn.execute('select nl.ingest_t1_rpc(%s::jsonb)', (json.dumps(base1),))
+                hr = conn.execute("select received_at = date_trunc('hour', received_at) from nl.raw_t1 order by id desc limit 1").fetchone()[0]
+                check('fix: raw received_at is stored hour-truncated', hr is True)
+
+                # gateway secret: enforced once configured
+                conn.execute("insert into nl.ingest_gateway (secret_sha256) values (encode(sha256(convert_to('s3cret', 'UTF8')), 'hex'))")
+                conn.execute("select set_config('request.headers', '{}', true)")
+                check('fix: ingest without gateway header is refused once configured',
+                      rejects('select nl.ingest_t1_rpc(%s::jsonb)', (json.dumps(base1),), psycopg.errors.InsufficientPrivilege))
+                conn.execute("select set_config('request.headers', %s, true)", (json.dumps({'x-nl-ingest-secret': 's3cret'}),))
+                check('fix: ingest with correct gateway header is accepted',
+                      conn.execute('select nl.ingest_t1_rpc(%s::jsonb)', (json.dumps(base1),)).fetchone()[0] == 1)
+                conn.execute('rollback;')
+
+                # scoped reader cannot request an older snapshot
+                conn.execute('select nl.publish_snapshot(%s)', ('rf-a',))
+                conn.execute('select nl.publish_snapshot(%s)', ('rf-b',))
+                old_snap = conn.execute('select min(snapshot_id) from nl.snapshot where published').fetchone()[0]
+                conn.execute('begin;')
+                conn.execute('set local role authenticated')
+                conn.execute("select set_config('request.jwt.claims', %s, true)",
+                             (json.dumps({'role': 'authenticated', 'app_metadata': {'role': 'reader', 'institution_id': 'thuas'}}),))
+                check('fix: scoped reader blocked from historic snapshot (42501)',
+                      rejects('select nl.release_json_for_institution(%s, %s)', ('thuas', old_snap), psycopg.errors.InsufficientPrivilege))
+                latest_ok = conn.execute('select nl.release_json_for_institution(%s, null)', ('thuas',)).fetchone()[0]
+                check('fix: scoped reader withheld cells carry no size bucket',
+                      all(h.get('bucket') is None for t in latest_ok['tables'] for h in t['withheld']))
+
+                # editor: municipal card cannot be filed under a shared city via an editable municipality
+                conn.execute("select set_config('request.jwt.claims', %s, true)",
+                             (json.dumps({'sub': 'rf', 'role': 'authenticated', 'app_metadata': {'role': 'editor', 'institution_id': 'thuas'}}),))
+                svc = {'service_id': 'rf_probe', 'name': 'Probe GP', 'service_type': 'gp', 'city_id': 'the-hague',
+                       'municipality_id': 'zoetermeer', 'description': 'Probe card.', 'url': 'https://example.org/'}
+                check('fix: editor blocked from shared city_id with editable municipality (42501)',
+                      rejects('select nl_content.editor_upsert_service(%s::jsonb, %s)', (json.dumps(svc), 'probe'), psycopg.errors.InsufficientPrivilege))
+                svc_http = dict(svc, city_id='zoetermeer', url='http://example.org/')
+                check('fix: http:// service URL rejected (https only)',
+                      rejects('select nl_content.editor_upsert_service(%s::jsonb, %s)', (json.dumps(svc_http), 'probe')))
+                conn.execute('rollback;')
+            except Exception as exc:
+                check('review-fix regression suite', False, str(exc))
 
     finally:
         if pg is not None:

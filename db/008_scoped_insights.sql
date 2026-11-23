@@ -351,6 +351,12 @@ begin
     raise exception 'unknown institution %', p_institution using errcode = '22023';
   end if;
 
+  -- Scoped (non-pooled) readers only ever see the latest published snapshot:
+  -- comparing older releases would allow differencing across snapshots.
+  if p_snapshot is not null and not v_allow_pooled
+     and p_snapshot is distinct from (select max(snapshot_id) from nl.snapshot where published) then
+    raise exception 'historic snapshots require pooled access' using errcode = '42501';
+  end if;
   v_snap := p_snapshot;
   if v_snap is null then
     select snapshot_id into v_snap
@@ -388,18 +394,21 @@ begin
              'col', col_key,
              'col_label', nl.dim_label(r.col_axis, col_key),
              'num', case when v_allow_pooled then num
-                         when num < 5 or (denom - num) < 5 or rate <= 0.10 or rate >= 0.90 or denom < 50 then null
+                         when num <= 5 or (denom - num) <= 5 or rate <= 0.10 or rate >= 0.90 or denom < 50 then null
                          else num end,
              'denom', denom,
              'rate', case when v_allow_pooled then rate
-                          when num < 5 or (denom - num) < 5 or rate <= 0.10 or rate >= 0.90 or denom < 50 then null
+                          when num <= 5 or (denom - num) <= 5 or rate <= 0.10 or rate >= 0.90 or denom < 50 then null
                           else rate end,
              'band', case when v_allow_pooled then band
-                          when num < 5 or (denom - num) < 5 or rate <= 0.10 or rate >= 0.90 then null
+                          when num <= 5 or (denom - num) <= 5 or rate <= 0.10 or rate >= 0.90 then null
                           else band end,
              'rate_display', case
-               when num < 5 or rate <= 0.10 then '<= 10.0%'
-               when (denom - num) < 5 or rate >= 0.90 then '>= 90.0%'
+               -- published counts are rounded to the nearest 5, so a published 0 or 5 means 0..7 true
+               when num <= 5 then 'fewer than 8 of ' || denom::text
+               when (denom - num) <= 5 then 'all but fewer than 8 of ' || denom::text
+               when rate <= 0.10 then '<= 10.0%'
+               when rate >= 0.90 then '>= 90.0%'
                when denom < 50 then band::text || '%'
                else round(rate * 100)::integer::text || '%'
              end) order by row_key, col_key), '[]'::jsonb)
@@ -419,7 +428,7 @@ begin
              'col', col_key,
              'col_label', nl.dim_label(r.col_axis, col_key),
              'reason', case when v_allow_pooled then reason else null end,
-             'bucket', bucket) order by row_key, col_key), '[]'::jsonb)
+             'bucket', case when v_allow_pooled then bucket else null end) order by row_key, col_key), '[]'::jsonb)
       into v_hidden
       from nl.suppressed_cell
      where snapshot_id = v_snap

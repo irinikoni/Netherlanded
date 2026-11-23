@@ -185,7 +185,7 @@ check('editor.js wires liveData tables, dynamic shared cities, community/governm
 check('009_content_editor.sql has copyright, nl_content schema, RLS, search_path, future-date guard & immutable audit trigger',
       'Copyright (c) 2026 Eirini Konidari' in sql9 and 'create schema if not exists nl_content' in sql9 and sql9.count('enable row level security') >= 4 and 'set search_path = nl_content, public, pg_temp' in sql9 and sql9.count('v_verified > current_date') >= 3 and 'guard_staff_change_immutable' in sql9 and 'on_fact_insert' in sql9)
 check('009_content_editor.sql seeds canonical tud/zuyd campuses, expands service_type, tightens URLs & returns campus_cities',
-      "'community'" in sql9 and "'government'" in sql9 and "('tud', 'delft')" in sql9 and "('zuyd', 'heerlen')" in sql9 and "('tudelft', 'delft')" not in sql9 and "('wur', 'wageningen')" not in sql9 and "[^\s\"''<>]+$" in sql9 and "'campus_cities'" in sql9)
+      "'community'" in sql9 and "'government'" in sql9 and "('tud', 'delft')" in sql9 and "('zuyd', 'heerlen')" in sql9 and "('tudelft', 'delft')" not in sql9 and "('wur', 'wageningen')" not in sql9 and "^https://[^\\s\"''<>\\\\]+$" in sql9 and "'campus_cities'" in sql9)
 
 # 5. Verify edge/ adapters & security headers
 edge_ingest = read_text('edge/ingest/index.ts')

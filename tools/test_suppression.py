@@ -179,7 +179,7 @@ check('ingest uses 22023 for shape errors', '22023' in ingest)
 
 check('release folds under an advisory lock', 'pg_advisory_xact_lock' in release)
 check('release enforces the floor', 'denom_true < 15' in release)
-check('release rounds to five', '(num / 5) * 5' in release)
+check('release rounds to the nearest five', 'round(num / 5.0) * 5' in release)
 check('release runs the release audit', 'assert_release_safe' in release)
 check('release exposes a json document', 'release_json' in release)
 

@@ -62,6 +62,8 @@ begin
 end;
 $fn$;
 
+-- Deprecated: `n` is no longer an accepted field (it was validated but never stored).
+-- Kept only so existing grants/revokes resolve; not called by ingest.
 create or replace function nl.check_hint(p jsonb)
 returns void
 language plpgsql
@@ -94,16 +96,16 @@ declare
   v_event  text;
   v_cat    text;
   v_ver    text;
+  v_ok_inst text[] := '{}';
 begin
   for e in select * from nl.normalize_batch(p) loop
     if jsonb_typeof(e) <> 'object' then
       raise exception 'each tier-1 event must be an object' using errcode = '22023';
     end if;
     perform nl.reject_identity(e);
-    perform nl.check_hint(e);
 
     for v_key in select jsonb_object_keys(e) loop
-      if v_key not in ('institution', 'intake', 'event', 'category', 'app_version', 'n') then
+      if v_key not in ('institution', 'intake', 'event', 'category', 'app_version') then
         raise exception 'unexpected tier-1 field %', v_key using errcode = '22023';
       end if;
     end loop;
@@ -140,9 +142,13 @@ begin
     if v_ver !~ '^[0-9a-z]{4,64}$' then
       raise exception 'app_version % is not a content hash', v_ver using errcode = '22023';
     end if;
-    if not exists (select 1 from nl.institution i
-                    where i.institution = v_inst and i.active) then
-      raise exception 'unknown or inactive institution %', v_inst using errcode = '22023';
+    -- validate each distinct institution once per batch
+    if not (v_inst = any (v_ok_inst)) then
+      if not exists (select 1 from nl.institution i
+                      where i.institution = v_inst and i.active) then
+        raise exception 'unknown or inactive institution %', v_inst using errcode = '22023';
+      end if;
+      v_ok_inst := v_ok_inst || v_inst;
     end if;
 
     insert into nl.raw_t1 (institution, intake, event, category, app_version)
@@ -171,16 +177,16 @@ declare
   v_event  text;
   v_step   text;
   v_hr     boolean;
+  v_ok_inst text[] := '{}';
 begin
   for e in select * from nl.normalize_batch(p) loop
     if jsonb_typeof(e) <> 'object' then
       raise exception 'each tier-2 event must be an object' using errcode = '22023';
     end if;
     perform nl.reject_identity(e);
-    perform nl.check_hint(e);
 
     for v_key in select jsonb_object_keys(e) loop
-      if v_key not in ('institution', 'region', 'intake', 'event', 'step', 'high_risk', 'n') then
+      if v_key not in ('institution', 'region', 'intake', 'event', 'step', 'high_risk') then
         raise exception 'unexpected tier-2 field %', v_key using errcode = '22023';
       end if;
     end loop;
@@ -216,13 +222,20 @@ begin
       if jsonb_typeof(e -> 'high_risk') <> 'boolean' then
         raise exception 'high_risk must be a boolean' using errcode = '22023';
       end if;
+      if v_event <> 'scam_checked' then
+        raise exception 'high_risk is only accepted on scam_checked events' using errcode = '22023';
+      end if;
       v_hr := (e ->> 'high_risk')::boolean;
     else
       v_hr := false;
     end if;
-    if not exists (select 1 from nl.institution i
-                    where i.institution = v_inst and i.active) then
-      raise exception 'unknown or inactive institution %', v_inst using errcode = '22023';
+    -- validate each distinct institution once per batch
+    if not (v_inst = any (v_ok_inst)) then
+      if not exists (select 1 from nl.institution i
+                      where i.institution = v_inst and i.active) then
+        raise exception 'unknown or inactive institution %', v_inst using errcode = '22023';
+      end if;
+      v_ok_inst := v_ok_inst || v_inst;
     end if;
 
     insert into nl.raw_t2 (institution, region, intake, event, step, high_risk)
