@@ -1,93 +1,291 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>Netherlanded architecture v2.2</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-:root{--ink:#14281f;--muted:#4b5b53;--green:#1c5a3c;--green-l:#e8f2ec;--gold:#9a6b0b;--gold-l:#fbf4e2;--blue:#24406b;--blue-l:#ecf1f8;--purple:#5b2a86;--purple-l:#f5eefb;--red:#9b2c2c;--line:#cfd8d3}
-*{box-sizing:border-box}body{margin:0;background:#fff;font:15px/1.4 "DejaVu Sans","Liberation Sans",Arial,sans-serif;color:var(--ink)}
-.page{width:1560px;padding:32px 36px}
-h1{font-size:34px;margin:0 0 4px}.sub{color:var(--muted);font-size:16px;margin-bottom:22px}
-.logo{display:inline-block;width:40px;height:40px;border-radius:9px;background:linear-gradient(#f2c230 0 50%,#1c5a3c 50%);vertical-align:-8px;margin-right:12px}
-.row{display:grid;gap:16px;margin-bottom:14px}.zone{border:2px solid var(--green);border-radius:16px;padding:14px 16px;background:var(--green-l)}
-.zone.edge{border-color:var(--blue);background:var(--blue-l)}.zone.sb{border-color:#3d6e5a;background:#f1f7f3}
-.zone.nl{border-color:var(--gold);background:var(--gold-l)}.zone.ct{border-color:var(--blue);background:var(--blue-l)}.zone.test{border-color:var(--purple);background:var(--purple-l)}
-.zt{font-weight:700;font-size:17px;margin:0 0 10px}.zt small{font-weight:400;color:var(--muted)}
-.box{background:#fff;border:1.5px solid var(--line);border-radius:11px;padding:10px 12px}
-.box h3{margin:0 0 4px;font-size:15.5px}.box p{margin:2px 0;font-size:13px;color:var(--muted)}
-.box .k{color:var(--green);font-weight:700}.box .w{color:var(--red);font-weight:700}.box .p{color:var(--purple);font-weight:700}
-.new{display:inline-block;font-size:10.5px;font-weight:700;color:#fff;background:#c0392b;border-radius:5px;padding:1px 6px;margin-left:6px;vertical-align:2px}
-.arrow{text-align:center;font-size:13px;color:var(--muted);margin:-4px 0 10px}.arrow b{color:var(--ink)}
-.pipe{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}.pipe .box{padding:8px}.pipe h3{font-size:13.5px}
-.legend{display:flex;gap:26px;font-size:13px;color:var(--muted);margin-top:8px}.legend span b{color:#c0392b}
-.foot{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted);margin-top:10px}
-</style></head><body><div class="page">
-<h1><span class="logo"></span>Netherlanded: System Architecture (v2.2)</h1>
-<div class="sub">Pentest-hardened build · 23 November 2026 · Tested on PostgreSQL 16 locally and on the real Supabase stack (PostgreSQL 17, PostgREST, GoTrue, Kong) · <b style="color:#c0392b">NEW</b> = changed since v2.1</div>
+:root{--ink:#152a20;--muted:#47554e;--green:#1e5a3a;--green-l:#eaf3ed;--gold:#a5760c;--gold-l:#fcf5e2;--navy:#2b4870;--navy-l:#eef2f8;--purple:#5b2a86;--purple-l:#f7f1fc;--teal:#2f6b63;--teal-l:#edf6f4;--red:#9b2c2c;--line:#c9d3cd}
+*{box-sizing:border-box}
+body{margin:0;background:#fff;font:14px/1.5 "Noto Sans","DejaVu Sans",Arial,sans-serif;color:var(--ink)}
+.page{position:relative;width:1560px;padding:34px 44px 30px}
+#wires{position:absolute;left:0;top:0;pointer-events:none;overflow:visible}
+.lbl{position:absolute;transform:translate(-50%,-50%);background:#fff;padding:1px 8px;font-size:13px;font-weight:500;white-space:nowrap;z-index:3}
+.lbl.v{background:#fff;border:1.5px solid var(--line);border-radius:8px;padding:8px 3px;writing-mode:vertical-rl;transform:translate(-50%,-50%) rotate(180deg);font-weight:600}
+header{display:flex;gap:16px;align-items:center}
+.logo{width:48px;height:48px;border-radius:11px;background:var(--green);display:flex;align-items:center;justify-content:center}
+.logo i{width:32px;height:32px;border-radius:50%;background:linear-gradient(#f2c230 0 50%,#b6c9bd 50%)}
+h1{font-size:34px;line-height:1.1;margin:0}.sub{color:var(--muted);font-size:16px;margin-top:4px}
+.zone{border:2.5px solid var(--green);border-radius:18px;background:var(--green-l);padding:16px 22px 20px}
+.zt{font-weight:700;font-size:17.5px;margin:0 0 14px;color:var(--green)}
+.box{background:#fff;border:2px solid var(--green);border-radius:13px;padding:12px 16px;text-align:center}
+.box h3{margin:0 0 4px;font-size:16px;line-height:1.3}
+.box .s{font-weight:600;font-size:14px;margin-bottom:4px}
+.box p{margin:2px 0;font-size:13px;color:var(--muted)}
+.box hr{border:0;border-top:1.5px solid #dde4df;margin:8px 12px}
+.g{color:var(--green);font-weight:600}.o{color:var(--gold);font-weight:600}.n{color:var(--navy);font-weight:600}.pu{color:var(--purple);font-weight:600}.r{color:var(--red);font-weight:600}
+.dash{border-style:dashed;border-color:#7d8aa0;background:#fafbfd}
+.gold{border-color:var(--gold)}.navy{border-color:var(--navy)}.purple{border-color:var(--purple)}.teal{border-color:var(--teal)}
+.zone.gold{background:var(--gold-l)}.zone.gold .zt{color:#7a5608}
+.host .zt{text-align:center}
+.zone.navy{background:var(--navy-l)}.zone.navy .zt{color:var(--navy)}
+.zone.teal{background:var(--teal-l)}.zone.teal .zt{color:var(--teal)}
+.zone.purple{background:var(--purple-l)}.zone.purple .zt{color:var(--purple)}
+.cyl{position:relative;padding:34px 20px 30px;text-align:center}
+.cyl svg{position:absolute;inset:0;width:100%;height:100%;z-index:0}
+.cyl>*:not(svg){position:relative;z-index:1}
+.cyl h3{margin:0 0 6px;font-size:16.5px}.cyl p{margin:3px 0;font-size:13px;color:var(--muted)}
+.row1{display:grid;grid-template-columns:262px 1fr 1.08fr;gap:34px;align-items:start;margin-top:64px}
+.host{margin-top:22px;padding:18px 22px 22px;text-align:center}
+.host .zt{text-align:center;color:#7a5608;font-size:19px;margin:0}
+.host .hs{color:var(--muted);font-size:12.5px;margin:2px 0 14px}
+.host .pill{background:#fff;border:1.5px solid #e2c675;border-radius:10px;padding:10px 6px;margin-top:10px;font-size:13.8px;font-weight:500}
+.staff{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.staff .box{min-height:0}
+.edge{margin-top:84px}
+.edge .top{margin-bottom:28px}
+.edge .lower{display:grid;grid-template-columns:290px 1.25fr 1fr 1.05fr;gap:20px}
+.sb{margin-top:64px}
+.sb .four{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:20px}
+.bottom{display:grid;grid-template-columns:1fr 520px;gap:44px;margin-top:80px;align-items:stretch}
+.stack{display:flex;flex-direction:column}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.gap{height:36px}.gap.s{height:30px}
+.steps{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin:10px 0 8px}
+.step{background:#fff;border:1.5px solid #cdb6e2;border-radius:10px;padding:8px 6px;text-align:center}
+.step b{display:block;width:24px;height:24px;line-height:24px;border-radius:50%;background:var(--purple);color:#fff;font-size:12.5px;margin:0 auto 4px}
+.step h4{margin:0 0 2px;font-size:13.5px;color:var(--purple)}.step p{font-size:11.8px;line-height:1.35;margin:0}
+.opt{border:1.5px dashed #b9c2d2;border-radius:10px;background:#fff;padding:9px 8px;margin-top:12px;font-size:13px;color:var(--muted)}
+.verify{margin-top:40px}
+.verify .six{display:grid;grid-template-columns:repeat(6,1fr);gap:14px}
+.verify .box{padding:10px 10px}.verify .box h3{font-size:15px}
+.legend{display:flex;align-items:center;gap:34px;margin-top:22px;font-size:14px;font-weight:500}
+.legend span{display:flex;align-items:center;gap:10px}
+.sw{display:inline-block;width:30px;height:20px;border-radius:5px;border:2px solid var(--green);background:var(--green-l)}
+.legend .copy{margin-left:auto;color:var(--muted);font-weight:400}
+</style></head><body><div class="page" id="page">
+<svg id="wires"></svg>
 
-<div class="row" style="grid-template-columns:1fr 1.5fr 1.5fr">
- <div class="zone" style="background:var(--gold-l);border-color:var(--gold)"><div class="zt">Static host / CDN</div>
-  <div class="box"><h3>netherlanded-app.html + sw.js</h3><p>Strict CSP (one SHA-256 script hash)</p><p>No third-party requests (verified in browser tests)</p></div>
-  <div class="box" style="margin-top:8px"><h3>web/dashboard.html · web/editor.html</h3><p>API text rendered as text only</p><p>Staff token in sessionStorage, cleared on Clear</p></div></div>
- <div class="zone"><div class="zt">Student phone <small>(offline-first PWA, no accounts)</small></div>
-  <div class="box"><h3>Tier 1 notice <span class="new">NEW</span></h3><p>Switch <span class="k">on by default</span> (legitimate interest) + one Continue; switching off = objection</p><p>Switch visible above Continue on a phone (Art. 21(4))</p></div>
-  <div class="box" style="margin-top:8px"><h3>Tier 2 consent <span class="new">NEW</span></h3><p>"Share additional statistics": own university (groups of 15+) and national comparisons (3+ institutions); explicit choice</p></div>
-  <div class="box" style="margin-top:8px"><h3>On-device storage</h3><p>Profile, steps, deadlines stay local · shuffled weekly batches (≤100 events, 64 KB)</p></div></div>
- <div class="zone"><div class="zt">University staff browser</div>
-  <div class="box"><h3>Insights Dashboard</h3><p>Bearer JWT → GET /api/stats · own institution, <span class="k">latest snapshot only</span> <span class="new">NEW</span></p><p>Small counts shown as ranges ("fewer than 12 of N") · no size buckets</p><p class="k">Access written into the contract (service schedule)</p></div>
-  <div class="box" style="margin-top:8px"><h3>Content Editor</h3><p>Bearer JWT → /api/editor/* · shared cities locked to super_admin</p><p>City <i>and</i> municipality must be editable <span class="new">NEW</span> · https-only links</p></div></div>
+<header><div class="logo"><i></i></div><div>
+ <h1>Netherlanded: System Architecture (v2.2)</h1>
+ <div class="sub">Pentest-hardened build · 23 November 2026 · PostgreSQL 16 (106/106 checks) and the real Supabase stack (46 pass, 0 fail) · Solid = built &amp; verified · Dashed = planned post-pilot</div>
+</div></header>
+
+<div class="row1">
+ <div class="zone gold host" id="host"><div class="zt">Static Host / CDN</div><div class="hs">GitHub Pages / Cloudflare Pages / Nginx</div>
+  <div class="pill" id="hostApp">netherlanded-app.html + sw.js</div>
+  <div class="pill">web/dashboard.html + stats.js</div>
+  <div class="pill">web/editor.html + editor.js</div></div>
+
+ <div class="zone" id="phone"><div class="zt">Student phone (offline-first PWA · no accounts)</div>
+  <div class="box" id="app"><h3>netherlanded-app.html + root sw.js</h3>
+   <p>Strict CSP (one SHA-256 script hash) · Embedded Terms &amp; Privacy v2.2</p>
+   <p>Tier 1 notice: switch <span class="g">on by default</span> + one Continue · switching off = objection</p>
+   <p>Tier 2: separate screen · with sharing / without sharing / decide later</p>
+   <p class="g">No third-party requests · Service Worker skips /api/*</p></div>
+  <div class="gap s"></div>
+  <div class="cyl" data-c="#1e5a3a"><h3>On-device localStorage + navigator.locks</h3>
+   <p>Profile, steps, deadlines, scam checks, reminders</p>
+   <p>Multi-tab flush guard · Shuffled weekly batches (&lt;= 100 events / 64 KB)</p>
+   <p>Queued counts deleted on objection or withdrawal</p></div>
+ </div>
+
+ <div class="zone" id="staff"><div class="zt">University staff browser (Demo Preview + Live JWT)</div>
+  <div class="staff">
+   <div class="box" id="dash"><h3>University Dashboard</h3><div class="s g">web/dashboard.html + stats.js</div><hr>
+    <p>Polder/Horizon light &amp; dark UI</p><p>Stuck points &amp; phase meters</p>
+    <p>Own institution · latest snapshot only</p><p>Small counts shown as ranges</p>
+    <p>Strict CSP · text-only rendering</p><p>Formula-safe Export CSV</p>
+    <p class="g" style="margin-top:8px">Bearer JWT -&gt; GET /api/stats</p>
+    <p class="o">Access written into the contract</p></div>
+   <div class="box" id="ed"><h3>Content Editor Panel</h3><div class="s g">web/editor.html + editor.js</div><hr>
+    <p>6 tabs: Check, Local, Services, Figures, Steps &amp; Changes diff</p>
+    <p>Shared city: city <i>and</i> municipality must be editable</p>
+    <p>https-only links · strict dates</p><p>Export JSON</p>
+    <p class="g" style="margin-top:8px">Bearer JWT -&gt; /api/editor/*</p>
+    <p>Token in sessionStorage, cleared on Clear</p>
+    <p>Mandatory audit change reason</p></div>
+  </div></div>
 </div>
-<div class="arrow"><b>POST /api/t1 · /api/t2</b> (no token) &nbsp;&nbsp;·&nbsp;&nbsp; <b>GET /api/stats · /api/editor/*</b> (staff JWT)</div>
 
-<div class="zone edge" style="margin-bottom:14px"><div class="zt">Edge security boundary <small>(EU · stateless · never logs IPs, JWTs or bodies)</small></div>
- <div class="row" style="grid-template-columns:1.3fr 1fr 1fr 1fr;margin:0">
-  <div class="box"><h3>Nginx reverse proxy <span class="new">NEW</span></h3><p>30 r/min per IP · strips XFF, real IP, UA, referer, <span class="k">Cookie</span>, client X-NL-Ingest-Secret</p><p><span class="k">server_tokens off · TLS 1.2/1.3 only</span> · security headers on every status</p><p>Adds X-NL-Proxy-Secret · client IP in no log file (tested)</p></div>
-  <div class="box"><h3>edge/ingest</h3><p>No JWT (--no-verify-jwt) · <span class="k">fails closed</span> without proxy secret</p><p>Forwards its own <span class="k">NL_INGEST_SECRET</span> <span class="new">NEW</span></p><p>Every upstream 400 → invalid_payload</p></div>
-  <div class="box"><h3>edge/stats</h3><p>JWT verification on · forwards caller JWT</p><p>Scope enforced in the database</p></div>
-  <div class="box"><h3>edge/editor</h3><p>JWT verification on · echoes only our own validation messages <span class="new">NEW</span></p></div>
+<div class="zone navy edge" id="edge"><div class="zt">Edge security &amp; gateway boundary (EU · stateless)</div>
+ <div class="box navy top" id="nginx"><h3>Nginx / Cloudflare Reverse Proxy (edge/security-headers.conf)</h3>
+  <p>In-memory rate limit (30 req/min per IP) · Strips X-Forwarded-For, CF-Connecting-IP, User-Agent, Referer, Cookie &amp; any client X-NL-Ingest-Secret</p>
+  <p>Adds X-NL-Proxy-Secret · server_tokens off · TLS 1.2/1.3 only · HSTS, frame-ancestors 'none', nosniff on every status · client IP in no log file</p></div>
+ <div class="lower">
+  <div class="box navy"><h3 style="font-size:15.5px">Zero-Log Edge Guarantees</h3>
+   <p>Never logs client IP, JWT or bodies</p><p>Fail-closed ALLOWED_ORIGINS CORS</p><p>64 KB streaming cap · 10 s timeout</p><p class="n">Verified in the gateway tests</p></div>
+  <div class="box navy" id="ingest"><h3>edge/ingest (Deno Edge Function)</h3><div class="s n">POST /api/t1 · POST /api/t2 (public, no JWT)</div>
+   <p>Fails closed without the proxy secret</p>
+   <p>Forwards its own NL_INGEST_SECRET to the database</p>
+   <p>Routes to nl.ingest_t1_rpc() &amp; nl.ingest_t2_rpc()</p>
+   <p>Maps 429 and every 400 to invalid_payload</p></div>
+  <div class="box navy" id="stats"><h3>edge/stats (Deno Edge Function)</h3><div class="s n">GET /api/stats (Staff Bearer JWT)</div>
+   <p>JWT verification on · forwards caller JWT</p>
+   <p>Calls nl.release_json_for_institution()</p>
+   <p>401/403 fail-closed tenant enforcement</p></div>
+  <div class="box navy" id="edfn"><h3>edge/editor (Deno Edge Function)</h3><div class="s n">GET/POST /api/editor/* (Staff JWT)</div>
+   <p>Routes list / service / step-local / fact / verify</p>
+   <p>Forwards caller JWT as Content-Profile: nl_content</p>
+   <p>Echoes only its own validation messages</p></div>
  </div></div>
 
-<div class="zone sb" style="margin-bottom:14px"><div class="zt">Supabase (EU) <small>· settings verified on the real stack</small> <span class="new">NEW</span></div>
- <div class="row" style="grid-template-columns:repeat(4,1fr);margin:0">
-  <div class="box"><h3>Kong gateway</h3><p>Routes /rest/v1 and /functions/v1</p></div>
-  <div class="box"><h3>PostgREST</h3><p>Exposed schemas: public, nl, nl_content · anon sees only the 2 ingest RPCs · GET refused on write RPCs</p></div>
-  <div class="box"><h3>GoTrue (ES256)</h3><p>Public signup off · users cannot set app_metadata · forged, expired, alg-none tokens rejected</p><p class="w">Revoke legacy HS256 secret (P13)</p></div>
-  <div class="box"><h3>Gateway secret in DB</h3><p>nl.check_ingest_gateway(): direct RPC with the public anon key refused · 2 hashes for rotation</p></div>
+<div class="zone teal sb" id="sb"><div class="zt">Supabase platform (EU) · production settings verified on the real stack</div>
+ <div class="four">
+  <div class="box teal"><h3>Kong API gateway</h3><p>Routes /rest/v1 and /functions/v1</p><p>ingest: verify_jwt off · stats, editor: on</p></div>
+  <div class="box teal"><h3>PostgREST</h3><p>Exposed: public, nl, nl_content</p><p>anon sees only the 2 ingest RPCs</p><p>GET refused on write RPCs</p></div>
+  <div class="box teal"><h3>GoTrue Auth (ES256)</h3><p>Public signup off · users cannot set app_metadata</p><p>Forged, tampered, expired, alg-none tokens rejected</p><p class="r">To do: revoke legacy HS256 secret</p></div>
+  <div class="box teal"><h3>Default grants closed</h3><p>Supabase gives anon/authenticated access to new tables in public</p><p class="g">Revoked + RLS on every table we create</p></div>
  </div></div>
 
-<div class="row" style="grid-template-columns:1.55fr 1fr">
- <div class="zone nl"><div class="zt">PostgreSQL insights <small>(schema nl · no identifiers stored)</small></div>
-  <div class="row" style="grid-template-columns:1fr 1fr;margin-bottom:8px">
-   <div class="box"><h3>nl.raw_t1 · nl.raw_t2</h3><p>Allowlisted fields only; identity fields, `n`, misplaced high_risk rejected</p><p><span class="k">Arrival time rounded to the hour</span> · secret record key per event <span class="new">NEW</span></p><p>Purged ≤24 h / ≤48 h · health() flags a stalled fold</p></div>
-   <div class="box"><h3>Ingest guards</h3><p>≤100 events per request · rate limit counts <span class="k">events</span>, not requests <span class="new">NEW</span></p><p>Hourly fold: nl.accumulate() under advisory lock</p></div>
+<div class="bottom">
+ <div class="zone gold stack" id="ins"><div class="zt">PostgreSQL: insights (nl schema · no student identifiers)</div>
+  <div class="box gold" id="gate"><h3>nl.ingest_t1_rpc() / nl.ingest_t2_rpc() (002)</h3>
+   <p>nl.check_ingest_gateway(): calls without the gateway secret refused · direct RPC with the public anon key fails · 2 hashes for rotation</p>
+   <p>&lt;= 100 events per request · campus-NAT sha256 hourly rate limit counts <b>events</b>, not requests</p>
+   <p class="o">Rejects identity fields, a client-sent n and misplaced high_risk (22023)</p></div>
+  <div class="gap"></div>
+  <div class="pair">
+   <div class="box gold" id="raw1"><h3>nl.raw_t1 (Tier 1 buffer)</h3><p>Course category &amp; cohort counters</p><p>Arrival time rounded to the hour</p><p>Secret record key per event</p><p class="o">Purged &lt;= 24h (hard ceiling)</p></div>
+   <div class="box gold" id="raw2"><h3>nl.raw_t2 (Tier 2 opt-in buffer)</h3><p>Steps, opened, missed, EU/non-EU, scam checks</p><p>Separate store, no link to Tier 1</p><p>Secret record key per event</p><p class="o">Unfolded delete guard · Purged &lt;= 48h</p></div>
   </div>
-  <div class="box" style="border-color:var(--purple);margin-bottom:8px"><h3 style="color:var(--purple)">Release pipeline · nl.build_stage() + nl.assert_release_safe() <span class="new">NEW</span></h3>
-   <div class="pipe" style="margin-top:6px">
-    <div class="box"><h3>1 Floor</h3><p>≥15 contributors &amp; denominator</p></div>
-    <div class="box"><h3>2 Cell-key noise</h3><p>±4, secret, fixed per cell · n-1 attack 1.00 → 0.56</p></div>
-    <div class="box"><h3>3 Round</h3><p>to the <b>nearest</b> 5 (unbiased)</p></div>
-    <div class="box"><h3>4 Carry-forward</h3><p>&lt;5 new contributions → previous value</p></div>
-    <div class="box"><h3>5 Complementary</h3><p>+ secondary suppression of a lone withheld cell</p></div>
-    <div class="box"><h3>6 Benchmarks</h3><p>≥3 institutions, no dominant one</p></div>
-    <div class="box"><h3>7 Audit</h3><p>re-checks all rules before commit</p></div>
+  <div class="gap"></div>
+  <div class="box gold" id="fold" style="margin:0 36px"><h3>Hourly Fold · nl.accumulate() (003 + 008)</h3>
+   <p>pg_advisory_xact_lock · Stamp-first READ COMMITTED safe (no skipped concurrent rows)</p>
+   <p>Folds into nl.accumulated_cell, nl.t1_cohort, nl.t2_base · nl.health() flags a stalled fold</p></div>
+  <div class="gap"></div>
+  <div class="box purple" id="rel"><h3 class="pu" style="font-size:18px">Monthly Release · nl.build_stage() → nl.publish_snapshot() · 7-step disclosure pipeline</h3>
+   <div class="steps">
+    <div class="step"><b>1</b><h4>Floor</h4><p>≥ 15 contributors in cell and denominator</p></div>
+    <div class="step"><b>2</b><h4>Cell-key noise</h4><p>± 4, secret, fixed per cell</p></div>
+    <div class="step"><b>3</b><h4>Round</h4><p>to the nearest 5 (unbiased)</p></div>
+    <div class="step"><b>4</b><h4>Carry-forward</h4><p>&lt; 5 new contributions: previous value</p></div>
+    <div class="step"><b>5</b><h4>Suppression</h4><p>complementary + secondary</p></div>
+    <div class="step"><b>6</b><h4>Benchmarks</h4><p>≥ 3 institutions, none dominant</p></div>
+    <div class="step"><b>7</b><h4>Safety gate</h4><p>assert_release_safe() re-checks all</p></div>
    </div>
-   <p style="margin-top:6px">Retired: rate-only delta rule (leaked 1–4 changes) and sticky rule (livelocked) · national scale 50 institutions: 32 s → 1.4 s</p></div>
-  <div class="box"><h3>nl.release_json_for_institution()</h3><p>Reader / editor / super_admin only · own institution rows · scoped readers: latest snapshot, no buckets, ranges for small counts</p></div>
+   <p class="pu">Pre-publish safety gate: nl.assert_release_safe() blocks any leak before the snapshot commits</p>
+   <p>Fake-student (n-1) attack: attacker's guess 1.00 → 0.56 · 50 institutions: 32 s → 1.4 s</p></div>
+  <div class="gap"></div>
+  <div class="cyl" id="snap" data-c="#5b2a86" data-f="#f7f1fc" style="margin:0 36px"><h3>nl.published_cell / nl.suppressed_cell (nl.snapshot)</h3>
+   <p>Immutable snapshots · 3-year (1095-day) retention · Only aggregates stored</p>
+   <p class="pu">nl.purge_raw() &amp; nl.health() watch the 24h / 48h raw ceilings continuously</p></div>
+  <div class="gap"></div>
+  <div class="box green" id="json" style="margin:0 36px"><h3>nl.release_json_for_institution() (008_scoped_insights.sql)</h3>
+   <p>Fail-closed staff JWT role check (reader / editor / super_admin) · Exact split_part() tenant isolation</p>
+   <p class="g">Scoped readers: latest snapshot only · no size buckets · small counts as ranges · tails capped ≤ 10% / ≥ 90%</p></div>
  </div>
- <div class="zone ct"><div class="zt">PostgreSQL content <small>(schema nl_content)</small></div>
-  <div class="box"><h3>5 editor RPCs (SECURITY DEFINER)</h3><p>Shared city needs <span class="k">city_id and municipality</span> editable <span class="new">NEW</span></p><p>Per-service advisory lock (no overwrite race) <span class="new">NEW</span></p><p>https-only URLs · link labels without markup · strict dates (_parse_date) <span class="new">NEW</span></p></div>
-  <div class="box" style="margin-top:8px"><h3>public.institution_campuses</h3><p class="k">RLS on + revoked from anon/authenticated <span class="new">NEW</span></p><p>Closes P1: Supabase default grants let the anon key rewrite city ownership</p></div>
-  <div class="box" style="margin-top:8px"><h3>staff_change</h3><p>Append-only audit log of every edit</p></div>
-  <div class="box" style="margin-top:8px"><h3>Controller split</h3><p>App, logs, benchmarks: Netherlanded (eenmanszaak) · collection: joint (Art. 26) · university reports: university, Netherlanded processor (SURF Model DPA)</p></div>
+
+ <div class="zone navy stack" id="con"><div class="zt">PostgreSQL: content &amp; ops (nl_content · EU)</div>
+  <div class="box navy" id="rpc"><h3>public.can_edit_city() + 5 Editor RPCs (005 + 009)</h3>
+   <p>editor_list · upsert_service · upsert_step_local · publish_fact · mark_verified</p>
+   <p>Shared city: city_id <i>and</i> municipality must both be editable</p>
+   <p>Per-service advisory lock (no overwrite race)</p>
+   <p>https-only URLs · markup-free link labels · strict dates</p>
+   <p class="n">Locks shared cities (The Hague, Delft) to super_admin; allows THUAS overrides</p></div>
+  <div class="gap"></div>
+  <div class="cyl" id="ncyl" data-c="#2b4870" style="padding-top:40px;padding-bottom:36px"><h3>nl_content Schema (PostgreSQL + RLS)</h3>
+   <p>nl_content.service: 149 local services &amp; campus desks</p>
+   <p>nl_content.step_local: municipal texts + THUAS overrides</p>
+   <p>nl_content.fact: versioned figures (auto-closes prior row)</p>
+   <p class="n">nl_content.staff_change: append-only audit log (42501 guard)</p>
+   <p style="margin-top:8px">public.institution_campuses: single-school vs shared-city ownership</p>
+   <p class="g">RLS on + revoked from anon / authenticated (closes P1)</p>
+   <p>Default-deny RLS on all tables for anon / authenticated</p></div>
+  <div class="gap"></div>
+  <div class="box dash" style="padding:14px 14px 12px;flex:1;display:flex;flex-direction:column;justify-content:space-evenly"><h3>Planned Post-Pilot Options (Account-Free by Design)</h3>
+   <div class="opt">Option 1: Local Persistence &amp; Export (IndexedDB + storage.persist(), JSON Backup &amp; .ics)</div>
+   <div class="opt">Option 2: Zero-Knowledge Sync (client-side AES-GCM encrypted blob, recovery code, no PII)</div>
+   <div class="opt">Option 3: Native OS Auto-Backup (Capacitor: iCloud/Google) · SURFconext Staff SSO</div>
+   <p style="margin-top:14px;color:var(--ink);font-weight:500">Zero student accounts · No student identifiers on servers · Physical isolation kept (nl_content vs nl)</p></div>
  </div>
 </div>
 
-<div class="zone test"><div class="zt">How it is verified <small>(pentest round 1–3)</small> <span class="new">NEW</span></div>
- <div class="row" style="grid-template-columns:repeat(6,1fr);margin:0">
-  <div class="box"><h3>Database</h3><p>106/106 · privilege surface with Supabase default grants</p></div>
-  <div class="box"><h3>Real Supabase stack</h3><p>46 pass, 0 fail (GitHub Actions)</p></div>
-  <div class="box"><h3>Gateway + edge</h3><p>32/32 end-to-end · Deno 26/26</p></div>
-  <div class="box"><h3>Privacy attacks</h3><p>reconstruction, differencing, benchmark subtraction, n-1 flooding</p></div>
-  <div class="box"><h3>Fuzzing</h3><p>release pipeline, RPC JSON, Schemathesis 1,009 cases</p></div>
-  <div class="box"><h3>Mutation check</h3><p>37/39 caught, 0 missed · browser 29/29</p></div>
+<div class="zone purple verify"><div class="zt">How it is verified (pentest rounds 1–3)</div>
+ <div class="six">
+  <div class="box purple"><h3>Database</h3><p>106/106 checks · privilege surface with Supabase default grants</p></div>
+  <div class="box purple"><h3>Real Supabase stack</h3><p>46 pass, 0 fail in GitHub Actions (PostgREST, GoTrue, Kong)</p></div>
+  <div class="box purple"><h3>Gateway + edge</h3><p>32/32 end-to-end through Nginx · Deno 26/26</p></div>
+  <div class="box purple"><h3>Privacy attacks</h3><p>Reconstruction, differencing, benchmark subtraction, n-1 flooding</p></div>
+  <div class="box purple"><h3>Fuzzing</h3><p>Release pipeline, RPC JSON, Schemathesis on the live API</p></div>
+  <div class="box purple"><h3>Mutation + browser</h3><p>37/39 mutants caught, 0 missed · browser 29/29</p></div>
  </div></div>
 
-<div class="foot"><span>Source: architecture/diagrams/architecture-v2.2.html · details in architecture/PENTEST_PLAN.md and TEST_FINDINGS_SUMMARY.md</span><span>© 2026 Eirini Konidari</span></div>
-</div></body></html>
+<div class="legend">
+ <span><i class="sw"></i>Solid border = Built &amp; verified</span>
+ <span><i class="sw" style="border-style:dashed;border-color:#7d8aa0;background:#fafbfd"></i>Dashed border = Planned post-pilot</span>
+ <span><i class="sw" style="border-color:var(--gold);background:var(--gold-l)"></i><span class="o" style="font-weight:500">Physical privacy wall: Insights (nl) isolated from Content (nl_content)</span></span>
+ <span class="copy">© 2026 Eirini Konidari</span>
+</div>
+</div>
+
+<script>
+function draw(){
+const page = document.getElementById('page'), svg = document.getElementById('wires');
+const NS = 'http://www.w3.org/2000/svg';
+// cylinders
+document.querySelectorAll('.cyl').forEach(el => {
+  const w = el.offsetWidth, h = el.offsetHeight, ry = 18, c = el.dataset.c, f = el.dataset.f || '#fff', s = 2.5, x0 = s/2, x1 = w - s/2;
+  const v = document.createElementNS(NS, 'svg'); v.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  v.innerHTML = `<path d="M${x0},${ry} A${(x1-x0)/2},${ry-2} 0 0 1 ${x1},${ry} L${x1},${h-ry} A${(x1-x0)/2},${ry-2} 0 0 1 ${x0},${h-ry} Z" fill="${f}" stroke="${c}" stroke-width="${s}"/>
+    <path d="M${x0},${ry} A${(x1-x0)/2},${ry-2} 0 0 0 ${x1},${ry}" fill="none" stroke="${c}" stroke-width="${s}"/>`;
+  el.prepend(v);
+});
+svg.setAttribute('width', page.offsetWidth); svg.setAttribute('height', page.offsetHeight);
+const pr = page.getBoundingClientRect();
+const R = id => { const r = document.getElementById(id).getBoundingClientRect();
+  return { l: r.left - pr.left, r: r.right - pr.left, t: r.top - pr.top, b: r.bottom - pr.top, cx: (r.left + r.right) / 2 - pr.left, cy: (r.top + r.bottom) / 2 - pr.top }; };
+const C = { g: '#1e5a3a', o: '#a5760c', n: '#2b4870', p: '#5b2a86', d: '#34433b', t: '#2f6b63' };
+let defs = '<defs>';
+for (const [k, c] of Object.entries(C)) defs += `<marker id="m${k}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="${c}"/></marker>`;
+svg.innerHTML = defs + '</defs>';
+function wire(pts, k, both) {
+  const p = document.createElementNS(NS, 'path');
+  p.setAttribute('d', 'M' + pts.map(q => q.join(',')).join(' L'));
+  p.setAttribute('fill', 'none'); p.setAttribute('stroke', C[k]); p.setAttribute('stroke-width', '2.4');
+  p.setAttribute('marker-end', `url(#m${k})`); if (both) p.setAttribute('marker-start', `url(#m${k})`);
+  svg.appendChild(p);
+}
+function label(x, y, text, k, cls) {
+  const d = document.createElement('div'); d.className = 'lbl' + (cls ? ' ' + cls : ''); d.textContent = text;
+  d.style.left = x + 'px'; d.style.top = y + 'px'; d.style.color = C[k]; page.appendChild(d);
+}
+const host = R('host'), staff = R('staff'), phone = R('phone'), app = R('app'), hostApp = R('hostApp');
+const yTop = staff.t - 30;
+wire([[host.cx, host.t], [host.cx, yTop], [staff.cx, yTop], [staff.cx, staff.t - 2]], 'o');
+label((host.cx + staff.cx) / 2, yTop, 'serves dashboard.html & editor.html', 'o');
+wire([[host.r, hostApp.cy], [app.l - 2, hostApp.cy]], 'o'); label((host.r + app.l) / 2, hostApp.cy - 14, 'app', 'o');
+const nginx = R('nginx'), edge = R('edge'), dash = R('dash'), ed = R('ed');
+const ingest = R('ingest'), stats = R('stats'), edfn = R('edfn');
+const mid1 = (phone.b + edge.t) / 2;
+wire([[ingest.cx, phone.b], [ingest.cx, nginx.t - 2]], 'g'); label(ingest.cx, mid1, 'POST /api/t1 & /api/t2 (shuffled)', 'g');
+wire([[dash.cx, dash.b + 2], [dash.cx, nginx.t - 2]], 'g', true); label(dash.cx, mid1, 'GET /api/stats (JWT)', 'g');
+wire([[ed.cx, ed.b + 2], [ed.cx, nginx.t - 2]], 'g', true); label(ed.cx, mid1, 'GET / POST /api/editor/* (JWT)', 'g');
+wire([[ingest.cx, nginx.b], [ingest.cx, ingest.t - 2]], 'd');
+wire([[stats.cx, nginx.b + 2], [stats.cx, stats.t - 2]], 'd', true);
+wire([[edfn.cx, nginx.b + 2], [edfn.cx, edfn.t - 2]], 'd', true);
+const sb = R('sb'), mid2 = (edge.b + sb.t) / 2;
+wire([[ingest.cx, ingest.b], [ingest.cx, sb.t - 2]], 'o'); label(ingest.cx, mid2, 'ingest RPCs + X-NL-Ingest-Secret', 'o');
+wire([[stats.cx, stats.b + 2], [stats.cx, sb.t - 2]], 'g', true); label(stats.cx, mid2, 'caller JWT', 'g');
+wire([[edfn.cx, edfn.b + 2], [edfn.cx, sb.t - 2]], 'n', true); label(edfn.cx, mid2, 'caller JWT · nl_content', 'n');
+const ins = R('ins'), con = R('con'), gate = R('gate'), mid3 = (sb.b + ins.t) / 2;
+const gx0 = gate.l + (gate.r - gate.l) * 0.72;
+wire([[gx0, sb.b], [gx0, gate.t - 2]], 'o'); label(gx0, mid3, 'nl.ingest_t1_rpc / nl.ingest_t2_rpc', 'o');
+const raw1 = R('raw1'), raw2 = R('raw2'), fold = R('fold');
+wire([[raw1.cx, gate.b], [raw1.cx, raw1.t - 2]], 'o'); wire([[raw2.cx, gate.b], [raw2.cx, raw2.t - 2]], 'o');
+const fy = (raw1.b + fold.t) / 2, fx1 = fold.l + (fold.r - fold.l) * 0.42, fx2 = fold.l + (fold.r - fold.l) * 0.58;
+wire([[raw1.cx, raw1.b], [raw1.cx, fy], [fx1, fy], [fx1, fold.t - 2]], 'o');
+wire([[raw2.cx, raw2.b], [raw2.cx, fy], [fx2, fy], [fx2, fold.t - 2]], 'o');
+const rel = R('rel'), snap = R('snap'), json = R('json');
+wire([[fold.cx, fold.b], [fold.cx, rel.t - 2]], 'd');
+wire([[rel.cx, rel.b], [rel.cx, snap.t - 2]], 'd');
+wire([[snap.cx, snap.b], [snap.cx, json.t - 2]], 'g');
+const gx = (ins.r + con.l) / 2;
+wire([[json.r, json.cy], [gx, json.cy], [gx, sb.b + 2]], 'g');
+label(gx, (sb.b + json.cy) / 2 + 120, 'scoped snapshot JSON only', 'g', 'v');
+const rpc = R('rpc'), ncyl = R('ncyl');
+const rx0 = rpc.l + (rpc.r - rpc.l) * 0.9;
+wire([[rx0, sb.b + 2], [rx0, rpc.t - 2]], 'n', true); label(rx0 - 40, mid3, 'SECURITY DEFINER RPCs', 'n');
+wire([[rpc.cx, rpc.b + 2], [rpc.cx, ncyl.t - 2]], 'n', true);
+window.__drawn = true;
+}
+document.fonts.ready.then(() => requestAnimationFrame(draw));
+</script>
+</body></html>
