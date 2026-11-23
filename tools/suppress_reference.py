@@ -23,6 +23,23 @@ def round_down_5(n):
     return (n // ROUND_TO) * ROUND_TO
 
 
+NOISE_MOD = 252  # record keys are 0..251; 252 is divisible by 9
+NOISE_HALF_WIDTH = 4
+
+
+def cell_noise(key):
+    """Mirror of nl.cell_noise(): fixed -4..+4 perturbation from a cell key; key 0 gives 0."""
+    k = (int(key or 0) % NOISE_MOD) % (2 * NOISE_HALF_WIDTH + 1)
+    return (k + NOISE_HALF_WIDTH) % (2 * NOISE_HALF_WIDTH + 1) - NOISE_HALF_WIDTH
+
+
+def round_nearest_5(n):
+    """Unbiased rounding to the nearest multiple of five (half away from zero, like SQL round())."""
+    if n <= 0:
+        return 0
+    return int((Decimal(n) / ROUND_TO).quantize(Decimal('1'), rounding=ROUND_HALF_UP)) * ROUND_TO
+
+
 def round_rate(num, denom):
     if denom <= 0:
         return None
@@ -86,8 +103,9 @@ def suppress(cells, previous_published=None, previous_suppressed=None):
     for raw in cells:
         num = int(raw['num'])
         denom = int(raw['denom'])
-        denom_pub = round_down_5(denom)
-        num_pub = min(round_down_5(num), denom_pub)
+        # cell-key perturbation, then rounding; published denominators are clamped to >= FLOOR
+        denom_pub = max(FLOOR, round_nearest_5(denom + cell_noise(raw.get('denom_key', 0))))
+        num_pub = min(round_nearest_5(num + cell_noise(raw.get('num_key', 0))), denom_pub)
         stage.append({
             'table_id': raw['table_id'],
             'row': raw['row'],
@@ -113,31 +131,23 @@ def suppress(cells, previous_published=None, previous_suppressed=None):
             c['rate'] = round_rate(c['num_pub'], c['denom_pub'])
             c['band'] = rate_band(c['num_pub'], c['denom_pub'])
 
-    # 3. delta against the last published release (rounded & clamped to 5dp like SQL numeric(7,5))
+    # 3. carry-forward: fewer than 5 contributions changed since the counts behind the cell's
+    #    most recent published value -> republish that value unchanged (mirrors nl.build_stage()).
+    #    previous_published maps (table_id, row, col) -> {'num', 'denom', 'rate', 'band',
+    #    'num_true', 'denom_true'}. Entries without true counts cannot be compared and are ignored.
+    #    The former 'delta' and 'sticky' rules are retired; previous_suppressed is accepted for
+    #    compatibility and ignored.
     for c in stage:
-        if c['reason'] is not None or c['denom_true'] <= 0:
+        if c['reason'] is not None:
             continue
-        prev = _previous_rate(previous_published, _cell_key(c))
-        if prev is None:
+        prev = (previous_published or {}).get(_cell_key(c))
+        if not isinstance(prev, dict) or prev.get('num_true') is None or prev.get('denom_true') is None:
             continue
-        true_rate = (Decimal(c['num_true']) / Decimal(c['denom_true'])).quantize(Decimal('0.00001'), rounding=ROUND_HALF_UP)
-        true_rate = max(Decimal('0.00000'), min(Decimal('1.00000'), true_rate))
-        diff = abs(true_rate - prev)
-        if Decimal('0') < diff < DELTA_MIN:
-            c['reason'] = 'delta'
-            c['rate'] = None
-            c['band'] = None
-
-    # 4. sticky: withheld in either of the previous two releases for any reason other than floor or sticky
-    sticky_keys = set()
-    for r in (previous_suppressed or []):
-        if r.get('reason') not in ('floor', 'sticky'):
-            sticky_keys.add((r['table_id'], r['row'], r['col']))
-    for c in stage:
-        if c['reason'] is None and _cell_key(c) in sticky_keys:
-            c['reason'] = 'sticky'
-            c['rate'] = None
-            c['band'] = None
+        moved = max(abs(c['num_true'] - int(prev['num_true'])), abs(c['denom_true'] - int(prev['denom_true'])))
+        if 1 <= moved <= 4:
+            c['num_pub'], c['denom_pub'] = int(prev['num']), int(prev['denom'])
+            c['rate'], c['band'] = prev['rate'], prev['band']
+            c['carried'] = True
 
     # 5. complementary: never leave a lone published cell in any row or scoped column
     for _ in range(MAX_COMPLEMENT_PASSES):
@@ -157,6 +167,24 @@ def suppress(cells, previous_published=None, previous_suppressed=None):
                     victim['rate'] = None
                     victim['band'] = None
                     changed = True
+        # 5b. secondary: a lone withheld cell in an institution-scoped column is
+        # recoverable from the institution total, so withhold its smallest sibling too
+        groups = {}
+        for c in stage:
+            gk = _col_group_key(c)
+            if gk[1]:
+                groups.setdefault(gk, []).append(c)
+        for members in groups.values():
+            if len(members) <= 1:
+                continue
+            withheld = [m for m in members if m['reason'] is not None]
+            open_cells = [m for m in members if m['reason'] is None]
+            if len(withheld) == 1 and open_cells:
+                victim = min(open_cells, key=lambda m: (m['denom_true'], str(m['row'])))
+                victim['reason'] = 'complementary'
+                victim['rate'] = None
+                victim['band'] = None
+                changed = True
         if not changed:
             break
 
@@ -205,5 +233,9 @@ def check_release(stage):
                 open_cells = [m for m in members if m['reason'] is None]
                 if len(open_cells) == 1:
                     problems.append(('lone_cell', axis, key))
+                if axis == 'col' and key[1]:
+                    withheld = [m for m in members if m['reason'] is not None]
+                    if len(withheld) == 1:
+                        problems.append(('lone_withheld', axis, key))
 
     return problems

@@ -157,9 +157,9 @@ volatile
 as $fn$
 declare
   v_prev1   bigint;
-  v_prev2   bigint;
   v_hit_row integer := 0;
   v_hit_col integer := 0;
+  v_hit_sec integer := 0;
   v_pass    integer := 0;
   v_out     integer := 0;
 begin
@@ -168,9 +168,12 @@ begin
   delete from nl.stage_cell;
 
   insert into nl.stage_cell (table_id, row_key, col_key, num_true, denom_true,
-                             num_pub, denom_pub)
+                             num_pub, denom_pub, num_basis, denom_basis)
   select table_id, row_key, col_key, num, denom,
-         least((num / 5) * 5, (denom / 5) * 5), (denom / 5) * 5
+         least(greatest(0, round((num + nl.cell_noise(num_key)) / 5.0) * 5),
+               greatest(15, round((denom + nl.cell_noise(denom_key)) / 5.0) * 5))::bigint,
+         greatest(15, round((denom + nl.cell_noise(denom_key)) / 5.0) * 5)::bigint,
+         num, denom
     from nl.accumulated_cell;
 
   -- 1. floor: fewer than fifteen true respondents (or < 15 distinct student contributors) is never published
@@ -221,7 +224,43 @@ begin
                      from nl.t2_base b
                     where b.intake = s.col_key), 0) < 15;
 
-  -- 2. round to a multiple of five, then derive the rate and its five point band
+  -- 1b. benchmark (pooled) cells: an institution that subtracts its own figures from a pooled
+  --     cell must not recover another school's. Publish only with at least 3 contributing
+  --     institutions and when no institution dominates what is left after removing the second
+  --     largest (largest > 70 % of total minus second largest), on both counts.
+  update nl.stage_cell s
+     set reason = 'floor'
+    from nl.stage_cell s0
+    left join (with parts as (
+            select case a.table_id when 't1_inst_category' then 't1_category_totals' else 't2_step_totals' end as pooled_table,
+                   split_part(a.row_key, ':', 2) as pooled_row, a.col_key, a.num, a.denom
+              from nl.accumulated_cell a
+             where a.table_id in ('t1_inst_category', 't2_inst_step')
+          ),
+          shares as (
+            select pooled_table, pooled_row, col_key,
+                   count(*) filter (where denom > 0) as n_inst,
+                   sum(denom) as t_d, sum(num) as t_n,
+                   (array_agg(denom order by denom desc))[1] as d1,
+                   coalesce((array_agg(denom order by denom desc))[2], 0) as d2,
+                   (array_agg(num order by num desc))[1] as n1,
+                   coalesce((array_agg(num order by num desc))[2], 0) as n2
+              from parts
+             group by pooled_table, pooled_row, col_key
+          )
+               select * from shares) sh
+      on sh.pooled_table = s0.table_id and sh.pooled_row = s0.row_key and sh.col_key = s0.col_key
+   where s.table_id = s0.table_id and s.row_key = s0.row_key and s.col_key = s0.col_key
+     and s.reason is null
+     and s.table_id in ('t1_category_totals', 't2_step_totals')
+     and (sh.pooled_table is null
+            or sh.n_inst < 3
+            or sh.d1 > 0.7 * (sh.t_d - sh.d2)
+            or (sh.t_n > 0 and sh.n1 > 0.7 * (sh.t_n - sh.n2)));
+
+  -- 2. perturb by the cell key (-4..+4, fixed per cell contents, secret to clients), round to the
+  --    nearest multiple of five, then derive the rate and its five point band. Published denominators
+  --    are clamped to at least 15 (only cells whose true denominator passed the floor are published).
   update nl.stage_cell
      set rate = least(1.000, greatest(0.000, round(num_pub::numeric / denom_pub, 3))),
          band = least(100, greatest(0, (round(num_pub::numeric * 20 / denom_pub) * 5)::integer))
@@ -230,16 +269,21 @@ begin
   select snapshot_id into v_prev1
     from nl.snapshot where published
    order by snapshot_id desc limit 1;
-  select snapshot_id into v_prev2
-    from nl.snapshot where published
-   order by snapshot_id desc offset 1 limit 1;
 
-  -- 3. delta: a move under five percentage points against the cell's most recent published release
+  -- 3. carry-forward (DISCLOSURE_CONTROL.md §5): if a cell's true counts moved by fewer than
+  --    5 contributions since the counts behind its most recent published value, republish that
+  --    previous value unchanged. Nothing observable changes, so small changes cannot be
+  --    differenced, and the cell is not withheld (a withheld cell would itself signal a change).
+  --    The basis counts are carried too, so many small monthly changes add up and are published
+  --    once they reach 5. This replaces the former rate-based 'delta' rule and the 'sticky' rule;
+  --    sticky could livelock two cells of one column into permanent suppression, and cell-key
+  --    noise (±6 per published cell) now covers the subtraction risk sticky was guarding.
   if v_prev1 is not null then
     update nl.stage_cell s
-       set reason = 'delta', rate = null, band = null
+       set num_pub = p.num, denom_pub = p.denom, rate = p.rate, band = p.band,
+           num_basis = p.num_true, denom_basis = p.denom_true, carried = true
       from (select distinct on (p.table_id, p.row_key, p.col_key)
-                   p.table_id, p.row_key, p.col_key, p.rate_true
+                   p.table_id, p.row_key, p.col_key, p.num, p.denom, p.rate, p.band, p.num_true, p.denom_true
               from nl.published_cell p
               join nl.snapshot sn on sn.snapshot_id = p.snapshot_id and sn.published
              order by p.table_id, p.row_key, p.col_key, p.snapshot_id desc) p
@@ -247,20 +291,8 @@ begin
        and p.row_key = s.row_key
        and p.col_key = s.col_key
        and s.reason is null
-       and abs(least(1.00000, greatest(0.00000, round(s.num_true::numeric / s.denom_true, 5))) - p.rate_true) > 0
-       and abs(least(1.00000, greatest(0.00000, round(s.num_true::numeric / s.denom_true, 5))) - p.rate_true) < 0.05;
-
-    -- 4. sticky: stay withheld for two further releases (never re-triggering on prior 'sticky' or 'floor')
-    update nl.stage_cell s
-       set reason = 'sticky', rate = null, band = null
-      where s.reason is null
-        and exists (select 1
-                      from nl.suppressed_cell x
-                     where x.snapshot_id in (v_prev1, coalesce(v_prev2, v_prev1))
-                       and x.reason not in ('floor', 'sticky')
-                       and x.table_id = s.table_id
-                       and x.row_key = s.row_key
-                       and x.col_key = s.col_key);
+       and p.num_true is not null
+       and greatest(abs(s.num_true - p.num_true), abs(s.denom_true - p.denom_true)) between 1 and 4;
   end if;
 
   -- 5. complementary: never leave exactly one published cell in a row or institution-scoped column
@@ -307,7 +339,33 @@ begin
        and g.npub = 1;
     get diagnostics v_hit_col = row_count;
 
-    exit when v_hit_row = 0 and v_hit_col = 0;
+    -- 5b. secondary: a lone withheld cell in an institution-scoped column can be
+    -- recovered from the institution total minus its siblings, so also withhold
+    -- the smallest published sibling in that group.
+    --     (one grouped pass, then a hash join: linear in the number of cells; the earlier
+    --     correlated subquery rescanned the table per candidate and was quadratic)
+    update nl.stage_cell s
+       set reason = 'complementary', rate = null, band = null
+      from (select distinct on (g.table_id, g.scope_key, g.col_key)
+                   s2.table_id, s2.row_key, s2.col_key
+              from (select s3.table_id, split_part(s3.row_key, ':', 1) as scope_key, s3.col_key
+                      from nl.stage_cell s3
+                      join nl.release_table rt on rt.table_id = s3.table_id
+                     where rt.row_axis in ('inst_category', 'inst_step', 'inst_region')
+                     group by s3.table_id, split_part(s3.row_key, ':', 1), s3.col_key
+                    having count(*) filter (where s3.reason is not null) = 1) g
+              join nl.stage_cell s2
+                on s2.table_id = g.table_id
+               and split_part(s2.row_key, ':', 1) = g.scope_key
+               and s2.col_key = g.col_key
+               and s2.reason is null
+             order by g.table_id, g.scope_key, g.col_key, s2.denom_true, s2.row_key) v
+     where s.table_id = v.table_id
+       and s.row_key = v.row_key
+       and s.col_key = v.col_key;
+    get diagnostics v_hit_sec = row_count;
+
+    exit when v_hit_row = 0 and v_hit_col = 0 and v_hit_sec = 0;
   end loop;
 
   -- 6. over_suppression: defensive sweep across both axes
@@ -429,6 +487,52 @@ begin
     raise exception 'snapshot % exposes a lone published cell along a column', p_snapshot
       using errcode = '23514';
   end if;
+  if exists (select 1 from (
+               select u.table_id, split_part(u.row_key, ':', 1) as scope_key, u.col_key,
+                      count(*) as total,
+                      count(*) filter (where u.src = 's') as nsup
+                 from (select table_id, row_key, col_key, 'p' as src
+                         from nl.published_cell where snapshot_id = p_snapshot
+                       union all
+                       select table_id, row_key, col_key, 's'
+                         from nl.suppressed_cell where snapshot_id = p_snapshot) u
+                 join nl.release_table rt on rt.table_id = u.table_id
+                where rt.row_axis in ('inst_category', 'inst_step', 'inst_region')
+                group by u.table_id, 2, u.col_key) g
+              where g.total > 1 and g.nsup = 1) then
+    raise exception 'snapshot % leaves a lone withheld cell in an institution-scoped column', p_snapshot
+      using errcode = '23514';
+  end if;
+  if exists (with parts as (
+         select case a.table_id when 't1_inst_category' then 't1_category_totals' else 't2_step_totals' end as pooled_table,
+                split_part(a.row_key, ':', 2) as pooled_row, a.col_key, a.num, a.denom
+           from nl.accumulated_cell a
+          where a.table_id in ('t1_inst_category', 't2_inst_step')
+       ),
+       shares as (
+         select pooled_table, pooled_row, col_key,
+                count(*) filter (where denom > 0) as n_inst,
+                sum(denom) as t_d, sum(num) as t_n,
+                (array_agg(denom order by denom desc))[1] as d1,
+                coalesce((array_agg(denom order by denom desc))[2], 0) as d2,
+                (array_agg(num order by num desc))[1] as n1,
+                coalesce((array_agg(num order by num desc))[2], 0) as n2
+           from parts
+          group by pooled_table, pooled_row, col_key
+       )
+             select 1
+               from nl.published_cell p
+               left join shares sh
+                 on sh.pooled_table = p.table_id and sh.pooled_row = p.row_key and sh.col_key = p.col_key
+              where p.snapshot_id = p_snapshot
+                and p.table_id in ('t1_category_totals', 't2_step_totals')
+                and (sh.pooled_table is null
+            or sh.n_inst < 3
+            or sh.d1 > 0.7 * (sh.t_d - sh.d2)
+            or (sh.t_n > 0 and sh.n1 > 0.7 * (sh.t_n - sh.n2)))) then
+    raise exception 'snapshot % publishes a benchmark cell with < 3 institutions or a dominant institution', p_snapshot
+      using errcode = '23514';
+  end if;
 end;
 $fn$;
 
@@ -449,9 +553,10 @@ begin
   returning snapshot_id into v_snap;
 
   insert into nl.published_cell (snapshot_id, table_id, row_key, col_key,
-                                 num, denom, rate, rate_true, band)
+                                 num, denom, rate, rate_true, band, num_true, denom_true, carried)
   select v_snap, table_id, row_key, col_key, num_pub, denom_pub, rate,
-         least(1.00000, greatest(0.00000, round(num_true::numeric / denom_true, 5))), band
+         least(1.00000, greatest(0.00000, round(num_basis::numeric / denom_basis, 5))), band,
+         num_basis, denom_basis, carried
     from nl.stage_cell
    where reason is null;
 

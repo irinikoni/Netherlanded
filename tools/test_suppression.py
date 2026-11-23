@@ -76,30 +76,26 @@ out = ref.suppress([
 check('two survivors next to a floored cell stay published',
       sum(1 for c in out if c['reason'] is None) == 2)
 
-previous = {('t1_category_totals', 'money', '2026-sep'): {'rate': 0.50}}
-out = ref.suppress([cell('t1_category_totals', 'money', '2026-sep', 52, 100)],
-                   previous_published=previous)
-check('a two point move is withheld as delta', out[0]['reason'] == 'delta')
+previous = {('t1_category_totals', 'money', '2026-sep'):
+            {'num': 50, 'denom': 100, 'rate': 0.5, 'band': 50, 'num_true': 50, 'denom_true': 100}}
+out = ref.suppress([cell('t1_category_totals', 'money', '2026-sep', 52, 100)], previous_published=previous)
+check('a change of fewer than 5 contributions republishes the previous value',
+      out[0]['reason'] is None and out[0].get('carried') and (out[0]['num_pub'], out[0]['denom_pub']) == (50, 100))
 
-out = ref.suppress([cell('t1_category_totals', 'money', '2026-sep', 70, 100)],
-                   previous_published=previous)
-check('a twenty point move publishes', out[0]['reason'] is None)
+out = ref.suppress([cell('t1_category_totals', 'money', '2026-sep', 52, 103)], previous_published=previous)
+check('carry-forward looks at both counts (num +2, denom +3)', out[0].get('carried') is True)
 
-out = ref.suppress([cell('t1_category_totals', 'money', '2026-sep', 50, 100)],
-                   previous_published=previous)
-check('an unchanged figure is not treated as delta', out[0]['reason'] is None)
+out = ref.suppress([cell('t1_category_totals', 'money', '2026-sep', 55, 100)], previous_published=previous)
+check('a change of 5 contributions publishes fresh', out[0]['reason'] is None and not out[0].get('carried'))
+
+out = ref.suppress([cell('t1_category_totals', 'money', '2026-sep', 50, 100)], previous_published=previous)
+check('an unchanged figure is published normally (not carried)', out[0]['reason'] is None and not out[0].get('carried'))
 
 out = ref.suppress(
     [cell('t1_category_totals', 'work', '2026-sep', 50, 100)],
     previous_suppressed=[{'table_id': 't1_category_totals', 'row': 'work',
                           'col': '2026-sep', 'reason': 'complementary'}])
-check('a previously withheld cell stays withheld', out[0]['reason'] == 'sticky')
-
-out = ref.suppress(
-    [cell('t1_category_totals', 'work', '2026-sep', 50, 100)],
-    previous_suppressed=[{'table_id': 't1_category_totals', 'row': 'work',
-                          'col': '2026-sep', 'reason': 'floor'}])
-check('a floor withholding does not stick', out[0]['reason'] is None)
+check('a previously complementary cell can publish again (sticky retired: it livelocked)', out[0]['reason'] is None)
 
 check('rate is clamped at one', ref.round_rate(120, 100) == 1.0)
 check('rate is clamped at zero', ref.round_rate(-5, 100) == 0.0)
@@ -179,7 +175,14 @@ check('ingest uses 22023 for shape errors', '22023' in ingest)
 
 check('release folds under an advisory lock', 'pg_advisory_xact_lock' in release)
 check('release enforces the floor', 'denom_true < 15' in release)
-check('release rounds to five', '(num / 5) * 5' in release)
+check('release perturbs by cell key then rounds to the nearest five',
+      'nl.cell_noise(num_key)' in release and 'nl.cell_noise(denom_key)' in release and '/ 5.0) * 5' in release)
+check('reference cell noise is -4..+4, uniform over keys 0..251, and key 0 means none',
+      ref.cell_noise(0) == 0 and sorted(set(ref.cell_noise(k) for k in range(252))) == list(range(-4, 5))
+      and all(sum(1 for k in range(252) if ref.cell_noise(k) == v) == 28 for v in range(-4, 5)))
+check('reference applies cell noise before rounding',
+      ref.suppress([{'table_id': 't1_category_totals', 'row': 'money', 'col': '2026-sep', 'num': 12, 'denom': 20,
+                     'num_key': 1, 'denom_key': 0}])[0]['num_pub'] == 15)
 check('release runs the release audit', 'assert_release_safe' in release)
 check('release exposes a json document', 'release_json' in release)
 

@@ -25,8 +25,37 @@ jobs:
       - name: Run full build, CSP SHA-256, SQL, dashboard, editor & edge verifier (162 checks)
         run: python3 tools/verify_build.py
 
-      - name: Install embedded PostgreSQL test runner dependencies
-        run: pip install pgserver "psycopg[binary]"
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Type-check and test edge functions (CORS, fail-closed secrets, body limits, error mapping)
+        run: |
+          deno check edge/ingest/index.ts edge/stats/index.ts edge/editor/index.ts
+          deno test --allow-env --allow-read edge/tests/edge.test.ts
+
+      - name: Install embedded PostgreSQL test runner, legal sync and attack-suite dependencies
+        run: pip install pgserver "psycopg[binary]" markdown scipy hypothesis
+
+      - name: Check in-app legal text matches TERMS_AND_PRIVACY.md
+        run: python3 tools/sync_legal.py --check
 
       - name: Run live PostgreSQL 16 migrations, RLS, editor scoping & concurrency suite
         run: python3 tools/run_pg_tests.py
+
+      - name: Disclosure-control attack suite (reconstruction, differencing, benchmark subtraction)
+        run: python3 tools/pentest/sdc_attacks.py 5
+
+      - name: Release performance at national scale (fails above 10 s)
+        run: python3 tools/pentest/scale_test.py
+
+      - name: Property-based fuzzing of the release pipeline and the public RPCs
+        run: |
+          python3 tools/pentest/release_fuzz.py 40
+          python3 tools/pentest/rpc_fuzz.py 200
+
+      - name: End-to-end gateway test (nginx -> edge functions -> database)
+        run: |
+          sudo apt-get install -y nginx
+          python3 tools/pentest/gateway_test.py

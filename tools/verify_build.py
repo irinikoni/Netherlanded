@@ -91,7 +91,11 @@ check("telemetry uses flushQueue with mode:'cors', credentials:'omit', referrerP
 check('telemetry uses batched array POSTs up to 100', 'BATCH_MAX = 100' in js_all and 'batch.map(e=>e.payload)' in js_all)
 check('Tier 1 rolls up campus_of, gates non-partner schools, and emits cohort_joined', 'parentInstitutionId(' in js_all and 'isPartnerInstitution(' in js_all and "event:'cohort_joined'" in js_all)
 check('Profile includes Local reminders & Anonymous statistics switches', 'Local reminders' in js_all and 'id="pf-stats-sec"' in js_all)
-check('Tier 1 notice buttons have equal primary class', 'id="bgObject">Object' in js_all and 'cg-quiet' not in js_all.split('showBasicGate')[1].split('showConsentGate')[0])
+check('Tier 1 notice: legitimate-interest switch on by default, one Continue button, Continue honours the switch',
+      'id="bgSwitch" role="switch" checked' in js_all and 'id="bgObject"' not in js_all
+      and "closeBasicGate(document.getElementById('bgSwitch')?.checked!==false)" in js_all)
+check('Tier 2 consent names both purposes and offers an explicit choice',
+      'National comparisons combine at least 3 institutions' in js_all and 'id="cgYes"' in js_all and 'id="cgNo"' in js_all)
 check('addDays uses calendar Date(y, m, d+n) (DST-safe)', 'new Date(d.getFullYear(),d.getMonth(),d.getDate()+n)' in js_all)
 check('whatIncludedSheet surfaces weekly batch waiting count', 'Waiting for weekly batch' in js_all)
 check('See my data includes _telemetry_queues', '_telemetry_queues' in js_all)
@@ -123,7 +127,8 @@ sqlt = read_text('db/test_sql.sql')
 check('001 defines fold_run partial indexes and published_cell_history_idx',
       'raw_t1_fold_run_idx' in sql1 and 'raw_t2_fold_run_idx' in sql1 and 'published_cell_history_idx' in sql1)
 
-check("003 fixes infinite sticky loop (not in ('floor', 'sticky'))", "not in ('floor', 'sticky')" in sql3)
+check("003 carry-forward replaces delta/sticky (no sticky livelock; small changes republish the previous value)",
+      "carried = true" in sql3 and "between 1 and 4" in sql3 and "set reason = 'sticky'" not in sql3 and "set reason = 'delta'" not in sql3)
 check('003 enforces 15-student contributor floor via t1_cohort & t2_base', 'nl.t1_cohort' in sql3 and 'nl.t2_base' in sql3)
 check('003 tracks both v_hit_row and v_hit_col in complementary loop', 'v_hit_row' in sql3 and 'v_hit_col' in sql3)
 check('004 checks raw_t1 (24h) & raw_t2 (48h) in nl.health() and schedules monthly release', "interval '24 hours'" in sql4 and "interval '48 hours'" in sql4 and 'nl.raw_t2' in sql4 and 'monthly' in sql4)
@@ -185,7 +190,7 @@ check('editor.js wires liveData tables, dynamic shared cities, community/governm
 check('009_content_editor.sql has copyright, nl_content schema, RLS, search_path, future-date guard & immutable audit trigger',
       'Copyright (c) 2026 Eirini Konidari' in sql9 and 'create schema if not exists nl_content' in sql9 and sql9.count('enable row level security') >= 4 and 'set search_path = nl_content, public, pg_temp' in sql9 and sql9.count('v_verified > current_date') >= 3 and 'guard_staff_change_immutable' in sql9 and 'on_fact_insert' in sql9)
 check('009_content_editor.sql seeds canonical tud/zuyd campuses, expands service_type, tightens URLs & returns campus_cities',
-      "'community'" in sql9 and "'government'" in sql9 and "('tud', 'delft')" in sql9 and "('zuyd', 'heerlen')" in sql9 and "('tudelft', 'delft')" not in sql9 and "('wur', 'wageningen')" not in sql9 and "[^\s\"''<>]+$" in sql9 and "'campus_cities'" in sql9)
+      "'community'" in sql9 and "'government'" in sql9 and "('tud', 'delft')" in sql9 and "('zuyd', 'heerlen')" in sql9 and "('tudelft', 'delft')" not in sql9 and "('wur', 'wageningen')" not in sql9 and "^https://[^\\s\"''<>\\\\]+$" in sql9 and "'campus_cities'" in sql9)
 
 # 5. Verify edge/ adapters & security headers
 edge_ingest = read_text('edge/ingest/index.ts')

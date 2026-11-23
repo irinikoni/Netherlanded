@@ -10,7 +10,7 @@ Netherlanded is a checklist and arrival-guidance web application for first-year 
 | `netherlanded-app.html` | Working student prototype (`TERMS_V = '2.1'`) with embedded Terms & Privacy Policy v2.1, separate Tier 1 notice/objection & Tier 2 opt-in consent flows, weekly shuffled client batching, and local telemetry inspection in *See my data*. |
 | `TERMS_AND_PRIVACY.md` | Terms of Service and Privacy Policy, version 2.1 (21 November 2026), harmonised with `LEGAL_DELTA.md` and `COMPLIANCE_CHECK.md`. The exact same text is embedded inside `netherlanded-app.html`. |
 | `LEGITIMATE_INTEREST_ASSESSMENT.md` | Written balancing test for Tier 1 limited service statistics (GDPR Art. 6(1)(f)), covering both Netherlanded's and participating universities' interests. |
-| `DISCLOSURE_CONTROL.md` | How statistics reach universities: 6-rule disclosure-control pipeline, 15-student floor, rounding to 5, delta/sticky/complementary suppression, controller model, and use restrictions. |
+| `DISCLOSURE_CONTROL.md` | How statistics reach universities: 6-rule disclosure-control pipeline, 15-student floor, cell-key noise, rounding to 5, carry-forward and complementary suppression, controller model, and use restrictions. |
 | `COMPLIANCE_CHECK.md` | Compliance review against GDPR/AVG, *Telecommunicatiewet* art. 11.7a, and Dutch consumer law, updated with v2.1 resolution status and remaining pre-pilot blockers. |
 | `PRIVACY_ASSESSMENT.md` | Deep privacy assessment (host IP logging, Dutch cookie rule, cohorts, governance decisions). |
 | `LEGAL_DELTA.md` | Audit of 10 legal-text and implementation corrections owed before production, with v2.1 consolidation status. |
@@ -25,7 +25,9 @@ Netherlanded is a checklist and arrival-guidance web application for first-year 
 | `sw.js`, `web/manifest.webmanifest` & `web/icon.svg` | Root-scoped HTTPS Service Worker (skipping `/api/` and `no-store` responses, same-origin notification URL validation) and PWA manifest/icon. |
 | `tools/` | `suppress_reference.py` (Python reference engine), `test_suppression.py` (62 checks), `verify_build.py` (162 checks), and `run_pg_tests.py` (live PostgreSQL 16.2 test & multi-connection concurrency runner). |
 | `business/` | IB business deliverables: `COMPETITOR_ANALYSIS.md`, `BUSINESS_MODEL_AND_ROI.md`, `STAKEHOLDER_ANALYSIS.md`, `CHECKLIST_BENCHMARK_AUDIT.md`, `INTERNATIONAL_EXPANSION_OUTLOOK.md` (CAGE framework), and `REPORT_HYGIENE_AND_REFLECTION.md`. |
-| `architecture/` | System architecture (`ARCHITECTURE.md`), `INFRASTRUCTURE.md`, `SECURITY_AUDIT.md`, `CHECKLISTS.md`, `SOURCE_AND_BUILD.md`, research (`FACT_CHECK.md`, `CITY_RESEARCH.md`), and design history. |
+| `architecture/` | System architecture (`ARCHITECTURE.md`), `INFRASTRUCTURE.md`, `SECURITY_AUDIT.md`, `PENTEST_PLAN.md` (pentest simulation options, attack scripts in `tools/pentest/`), `TEST_FINDINGS_SUMMARY.md` (condensed tests, findings and fixes), `CHECKLISTS.md`, `SOURCE_AND_BUILD.md`, research (`FACT_CHECK.md`, `CITY_RESEARCH.md`), and design history. |
+| `netherlanded-architecture-v2.2.png`, `netherlanded-legal-overview-v2.2.png` | Current architecture and legal overviews (pentest-hardened build, 23 Nov 2026); HTML sources in `architecture/diagrams/`. The v2.1 images are kept for history. |
+| `presentations/` | THUAS pilot pitch and the privacy, security and legal briefing as PowerPoint files, in the app's colours; rebuilt by `tools/decks/build_decks.cjs`. |
 | `.github/workflows/` | GitHub Actions workflows: `ci.yml` (runs all 3 verification suites on push/PR) and `pages.yml` (publishes `index.html`, `netherlanded-app.html`, `sw.js`, and `web/` to GitHub Pages). |
 | `index.html` | Static GitHub Pages landing portal linking directly to `netherlanded-app.html`, `web/dashboard.html`, and `web/editor.html` in Demo Mode. |
 

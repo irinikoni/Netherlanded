@@ -190,6 +190,6 @@ student. `send-notifications` checks the same list before every send and removes
 
 ## v2.1 Consolidation Note (21 November 2026)
 
-- **Consolidated Analytics & Disclosure-Control SQL:** Any earlier references to weekly `arrival_week` (`2026-W35`) cohorts or threshold-10 `dash_*` views are superseded by `db/001_schema.sql`–`db/004_retention.sql` (`intake` semester `YYYY-sep`/`YYYY-feb`, separate `nl.raw_t1` / `nl.raw_t2` stores, 6-rule disclosure control at floor ≥ 15 with rounding to 5, delta/sticky/complementary suppression, 48h raw event ceiling, and `web/stats.js` safe dashboard renderer).
+- **Consolidated Analytics & Disclosure-Control SQL:** Any earlier references to weekly `arrival_week` (`2026-W35`) cohorts or threshold-10 `dash_*` views are superseded by `db/001_schema.sql`–`db/004_retention.sql` (`intake` semester `YYYY-sep`/`YYYY-feb`, separate `nl.raw_t1` / `nl.raw_t2` stores, 6-rule disclosure control at floor ≥ 15 with cell-key noise, rounding to 5, carry-forward and complementary suppression, 48h raw event ceiling, and `web/stats.js` safe dashboard renderer).
 - **Shared-City Editor Privilege Fix:** `db/005_content_editor_security_fix.sql` addresses `SECURITY_AUDIT.md` Finding P9 (`can_edit_city` with `search_path = public, pg_temp`).
 - **Pre-pilot remaining infrastructure work:** Live PostgreSQL execution of `db/001`–`005`, per-institution RLS/tenant scoping on `nl.release_json()`, edge rate limiting, edge IP stripping (target ≤ 24h logs vs. 7 days on Supabase Pro), and signed Art. 28 DPAs.

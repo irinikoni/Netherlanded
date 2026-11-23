@@ -13,8 +13,12 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const PROXY_SECRET = Deno.env.get("NL_PROXY_SECRET") ?? "";
 
+// Fail closed: without NL_PROXY_SECRET every request is refused, unless the
+// deployment explicitly opts into direct access for local development.
+const ALLOW_DIRECT_DEV = Deno.env.get("NL_ALLOW_DIRECT_DEV") === "1";
+
 function checkProxySecret(req: Request): boolean {
-  if (!PROXY_SECRET) return true;
+  if (!PROXY_SECRET) return ALLOW_DIRECT_DEV;
   const supplied = req.headers.get("x-nl-proxy-secret") ?? "";
   const a = new TextEncoder().encode(supplied);
   const b = new TextEncoder().encode(PROXY_SECRET);
@@ -92,6 +96,8 @@ Deno.serve(async (req: Request) => {
   }
 
   const url = new URL(req.url);
+  // The JWT is not verified here; this only picks a default. Scope is enforced in
+  // nl.release_json_for_institution (42501 unless super_admin or matching institution_id).
   const inst = url.searchParams.get("institution") || decodeJwtInstitution(jwt);
   if (!inst || !/^[a-z0-9_-]{2,32}$/.test(inst)) {
     return new Response(JSON.stringify({ error: "invalid_institution" }), { status: 400, headers });

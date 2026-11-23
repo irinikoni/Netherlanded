@@ -1,16 +1,16 @@
-# Legitimate interest assessment: limited service statistics (Tier 1 — Path B Multi-Tenant Controller Model)
+# Legitimate interest assessments: limited service statistics (Tier 1) and national benchmarks
 
-*Draft, updated 22 November 2026 (v2.1 Path B hardening) for Privacy Policy version 2.1. Written for each contracting university controller to review and sign under its SURF Model DPA. It is not legal advice and has not been reviewed by a lawyer or a privacy officer.*
+*Draft, updated 23 November 2026 for the per-operation controller split (`DISCLOSURE_CONTROL.md` §8). Part 1 is signed jointly by Netherlanded and each partner university (joint controllers for collection, Art. 26). Part 2 is Netherlanded's own assessment as sole controller for national benchmarks. It is not legal advice and has not been reviewed by a lawyer or a privacy officer.*
 
-**Scope.** This assessment covers **Tier 1, limited service statistics** for **contracted participating universities** (`nl-partner-institutions`): counted after the student has seen a notice of its own, with a toggle and "Object to limited statistics" button there and a switch in Profile. **Tier 2**, the additional statistics for universities, is opt-in and rests on consent (Art. 6(1)(a)); it is not covered here.
+**Scope.** This assessment covers **Tier 1, limited service statistics** for **contracted participating universities** (`nl-partner-institutions`): counted after the student has seen a notice of its own, with a switch there that is on by default (switching it off before Continue records the objection; Art. 21(4): the right to object is shown clearly and separately) and a switch in Profile. **Tier 2**, the additional statistics for universities, is opt-in and rests on consent (Art. 6(1)(a)); it is not covered here.
 
-**Purpose & Path B Governance.** Each **contracted university is the independent first-party GDPR controller** for its incoming students under a signed **SURF Model Data Processing Agreement (Art. 28 GDPR)**, and Netherlanded operates strictly as its multi-tenant **Data Processor**. The university uses limited service statistics to measure onboarding quality and technical reliability, and receives disclosure-controlled aggregate reports for its own students. Non-partner universities are excluded from institution-scoped Tier 1 metrics. The statistics are never used to monitor individual students, make decisions about them, or identify students who need intervention.
+**Purpose & governance.** Netherlanded (an *eenmanszaak*, the provider of the app) and each partner university are **joint controllers** (Art. 26) for collecting Tier 1 counts: Netherlanded to measure the app's quality and reliability, the university to receive disclosure-controlled reports on its own students, which Netherlanded produces as its **processor** under a SURF Model DPA (Art. 28). Non-partner universities are excluded from institution-level Tier 1 metrics. The statistics are never used to monitor individual students, make decisions about them, or identify students who need intervention.
 
-**Processing assessed.** Once per student and step, a "+1" holding only: app or content version, school (rolled up to parent institution, never campus), intake semester (for example `2026-sep`), and either a one-time `cohort_joined` marker or a broad step category (`admin`, `housing`, `money`, `health`, `work`, `social`, `wellbeing`) with `step_applies` / `step_completed`; plus at most one `technical_error` count per app version. **No `step_id` is ever included in Tier 1.** Counts are queued on the phone and sent in **weekly shuffled batches** through our EU reverse proxy, which **strips all IP and User-Agent headers in RAM (0 seconds IP disk storage)** and enforces `X-NL-Proxy-Secret` so direct Supabase bypass is rejected (`403`). Raw Tier 1 events (`nl.raw_t1`) are folded hourly into aggregates and deleted within 1 hour of folding (**24-hour hard ceiling**, `db/004_retention.sql`). Universities receive only their own institution's approved snapshots (`db/008_scoped_insights.sql` + `db/003_release.sql`): every result based on at least 15 students, counts rounded to multiples of 5, extreme tails (`<= 10.0%` / `>= 90.0%`) redacted (`num`/`rate`/`band` nulled), `< 5`pp delta suppression, 2-release sticky suppression, 2D complementary suppression, and pre-publish audit (`nl.assert_release_safe()`).
+**Processing assessed.** Once per student and step, a "+1" holding only: app or content version, school (rolled up to parent institution, never campus), intake semester (for example `2026-sep`), and either a one-time `cohort_joined` marker or a broad step category (`admin`, `housing`, `money`, `health`, `work`, `social`, `wellbeing`) with `step_applies` / `step_completed`; plus at most one `technical_error` count per app version. **No `step_id` is ever included in Tier 1.** Counts are queued on the phone and sent in **weekly shuffled batches** through our EU reverse proxy, which **strips all IP and User-Agent headers in RAM (0 seconds IP disk storage)** and enforces `X-NL-Proxy-Secret` so direct Supabase bypass is rejected (`403`). Raw Tier 1 events (`nl.raw_t1`) are folded hourly into aggregates and deleted within 1 hour of folding (**24-hour hard ceiling**, `db/004_retention.sql`). Universities receive only their own institution's approved snapshots (`db/008_scoped_insights.sql` + `db/003_release.sql`): every result based on at least 15 students, counts rounded to multiples of 5, extreme tails (`<= 10.0%` / `>= 90.0%`) redacted (`num`/`rate`/`band` nulled), cell-key noise, carry-forward of changes under 5 contributions, 2D complementary suppression, and pre-publish audit (`nl.assert_release_safe()`).
 
 **Not included:** account, device, installation or session IDs; IP address on disk (`0` seconds); name, e-mail or student number; EU/EEA status or nationality; exact dates or timestamps; step ids, opening histories or page sequences; notes or form contents; scam-check answers; missed deadlines; anything linking counts over time or across devices.
 
-**Legal basis claimed:** GDPR Article 6(1)(f) on behalf of each contracting university controller, alongside the Dutch first-party analytics exception in *Telecommunicatiewet* art. 11.7a(3)(b) (supported by immediate edge IP stripping, 24h raw purge, partner-only gating, and strict category granularity).
+**Legal basis claimed:** GDPR Article 6(1)(f) for Netherlanded and each partner university as joint controllers, alongside the Dutch analytics exception for the service provider in *Telecommunicatiewet* art. 11.7a(3)(b) (supported by immediate edge IP stripping, 24h raw purge, partner-only gating, and strict category granularity).
 
 **Personal data involved:** Transient IP address during TLS termination at the edge proxy (rate-limited in RAM and stripped before upstream forwarding — **0 seconds stored on disk**; technical logs are IP-free and rotated ≤ 24h), and raw Tier 1 counters prior to hourly folding and ≤ 24h deletion. Approved snapshots meet Recital 26 anonymity thresholds.
 
@@ -64,23 +64,50 @@ Universities already hold enrolment and support records: who is in an intake, wh
 - Notice before counting; objection on the notice and in Profile; objecting stops counting and deletes the counts on the phone.
 - Client-side weekly shuffled batching (`credentials: 'omit'`, `referrerPolicy: 'no-referrer'`) to prevent network-timing correlation.
 - Separate Tier 1 (`nl.raw_t1`) and Tier 2 (`nl.raw_t2`) stores, hard identity-field rejection (`nl.reject_identity()`), hourly folding, and enforced deletion (`nl.purge_raw()`, 1h after fold; **24-hour hard ceiling** for `nl.raw_t1`, 48h for `nl.raw_t2`), monitored by `nl.health()`.
-- 6-rule SQL disclosure-control pipeline (`db/003_release.sql` + `db/008_scoped_insights.sql` + `nl.assert_release_safe()`): ≥ 15 floor, rounding to multiples of 5, `< 5`pp delta suppression, 2-release sticky suppression, 2D complementary suppression, tail redaction (`<= 10.0%` / `>= 90.0%` nulls `num`/`rate`/`band`), and withheld bucket reporting.
-- Multi-tenant Path B controller governance (`DISCLOSURE_CONTROL.md` §8): each contracted university acts as independent GDPR controller under a SURF Model DPA (`nl-partner-institutions` gating), receiving only its own institution's snapshots.
+- 6-rule SQL disclosure-control pipeline (`db/003_release.sql` + `db/008_scoped_insights.sql` + `nl.assert_release_safe()`): ≥ 15 floor, secret cell-key perturbation (−4…+4, defeats n-1 flooding: attacker accuracy 0.56 vs 1.00 before), rounding to the nearest multiple of 5, carry-forward of changes under 5 contributions (previous value shown), 2D complementary plus secondary suppression, tail redaction (small counts shown only as "fewer than 12 of N" or "almost all of N"; `<= 10.0%` / `>= 90.0%` nulls `num`/`rate`/`band`), and withheld cells shown to universities without size buckets. Raw arrival times are hour-truncated, and ingest is gateway-only (`nl.check_ingest_gateway()`).
+- Per-operation controller split (`DISCLOSURE_CONTROL.md` §8): joint controllership for collection, SURF Model DPA for each university's own reports (`nl-partner-institutions` gating), each university receiving only its own institution's snapshots.
 - Concrete retention periods (`db/004_retention.sql`): Tier 1 raw events ≤ 24h, Tier 2 raw events ≤ 48h, staging cells 90 days, published snapshots 3 years (1,095 days), unmapped dictionary 400 days, gateway technical logs IP-stripped in RAM (0s IP storage) and rotated ≤ 24h.
 
-**Result:** with immediate IP stripping, 24-hour `raw_t1` deletion, and Path B multi-tenant controller isolation, students' interests do not override the contracting university's legitimate interests. Adding dimensions or step-level detail stays restricted to opt-in Tier 2.
+**Result:** with immediate IP stripping, 24-hour `raw_t1` deletion, and Path B multi-tenant controller isolation, students' interests do not override the joint controllers' legitimate interests. Adding dimensions or step-level detail stays restricted to opt-in Tier 2.
 
 ---
 
 ## 4. Conclusion
 
-Article 6(1)(f) is an appropriate basis for Tier 1 under **Path B**, alongside the first-party analytics exception in *Telecommunicatiewet* art. 11.7a(3)(b).
+Article 6(1)(f) is an appropriate basis for Tier 1 collection by the joint controllers, alongside the service-provider analytics exception in *Telecommunicatiewet* art. 11.7a(3)(b).
 
 **Before launch:**
 - [ ] Partner university DPO confirms Path B Tier 1 setup (with 0s IP disk storage, ≤ 24h `raw_t1` purge, and `nl-partner-institutions` gating).
 - [ ] Complete the formal DPIA before the pilot (`LEGAL_DELTA.md` #7).
-- [ ] Execute SURF Model Art. 28 DPA with each participating university (predefined reports, ban on individual decisions/re-identification, Recital 26 benchmark authorization) and EU hosting DPAs.
-- [ ] Verify `pg_cron` jobs and `NL_PROXY_SECRET` in hosted production deployment (`db/004_retention.sql`, `edge/*`).
-- [ ] The university controller reviews and signs this assessment annually or upon schema changes.
+- [ ] Execute, with each partner university: the Art. 26 joint-controller arrangement (collection), the SURF Model Art. 28 DPA (its own reports: predefined reports, ban on individual decisions and re-identification), and the dashboard service schedule. Sign the EU hosting DPAs. The benchmark is **not** a DPA term (see Part 2).
+- [ ] Verify `pg_cron` jobs, `NL_PROXY_SECRET`, `NL_INGEST_SECRET` and the `nl.ingest_gateway` row in the hosted production deployment (`RELEASE_CHECKLIST.md`).
+- [ ] Both joint controllers review and sign Part 1 annually or upon schema changes.
 
-Signed: ______________________ (controller)   Date: ____________
+Signed: ______________________ (Netherlanded, [trade name], KVK [number])   Date: ____________
+
+Signed: ______________________ (partner university controller)   Date: ____________
+
+---
+
+# Part 2: National benchmarks (controller: Netherlanded)
+
+**Operation.** Netherlanded compiles pooled tables across all partner universities (`t1_category_totals`, `t2_step_totals`) from the same raw Tier 1 and Tier 2 counts, before those counts are deleted (≤ 24 h / ≤ 48 h). Outputs go through the same disclosure-control pipeline (`db/003_release.sql`) and are published only as pooled totals. No university sees another university's rows.
+
+**1. Purpose test.** Netherlanded's interests are:
+- finding guidance that fails students everywhere (for example a national step most cohorts struggle with) and correcting it for all users, including students of non-partner institutions;
+- publishing sector-level findings that help the Dutch higher-education sector, municipalities and student organisations improve arrival support;
+- giving each partner a benchmark to compare its own results against.
+
+These are lawful, specific interests. Commercial benefit (a better product, a sales argument) is also present and is acknowledged openly.
+
+**2. Necessity test.** Pooled tables need no data beyond what Tier 1 and Tier 2 already collect: no extra fields, no longer retention. A smaller alternative, only benchmarking published per-university snapshots, would pool already-rounded and suppressed cells. That compounds rounding error and loses most small-cohort information, so it would not achieve the purpose. Pooling happens inside the same fold, so no data is kept for longer.
+
+**3. Balancing test.**
+- **Reasonable expectations:** students are told in the policy (§11, §13) that anonymous national totals are compiled. The benchmark brings no new data category and no new recipient of personal data.
+- **Impact:** outputs are anonymous (floor ≥ 15 at pooled level, cell-key noise, rounding to 5, carry-forward and complementary suppression). Pooled cells are larger than institution cells, so re-identification risk is lower than for the university reports.
+- **Safeguards:** same as Part 1, plus every pooled cell needs at least 3 contributing institutions and no dominant institution (`DISCLOSURE_CONTROL.md`, benchmark cells), so no university can recover another's figures by subtraction; pooled tables are visible only to `super_admin` and privileged roles (`release_json_for_institution` excludes them for scoped readers), and publication is reviewed by a person before release.
+- **Objection:** objecting to Tier 1, or not consenting to Tier 2, also excludes the student from benchmarks.
+
+**Result:** Netherlanded's interests are not overridden. The residual risk is the self-reported-count limitation in `DISCLOSURE_CONTROL.md` ("Known limitation", §5): counts cannot be de-duplicated, which affects accuracy more than privacy.
+
+Signed: ______________________ (Netherlanded, [trade name], KVK [number])   Date: ____________

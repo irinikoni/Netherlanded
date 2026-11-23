@@ -93,7 +93,7 @@ create table if not exists nl.raw_t1 (
   event       nl.t1_event not null,
   category    nl.category,
   app_version text not null,
-  received_at timestamptz not null default now(),
+  received_at timestamptz not null default date_trunc('hour', now()),
   week_start  date not null default ((date_trunc('week', now()))::date),
   fold_run    bigint,
   constraint raw_t1_intake_chk check (intake ~ '^[0-9]{4}-(sep|feb)$'),
@@ -112,7 +112,7 @@ create table if not exists nl.raw_t2 (
   event       nl.t2_event not null,
   step        text,
   high_risk   boolean,
-  received_at timestamptz not null default now(),
+  received_at timestamptz not null default date_trunc('hour', now()),
   week_start  date not null default ((date_trunc('week', now()))::date),
   fold_run    bigint,
   constraint raw_t2_region_chk check (region ~ '^[a-z0-9_-]{2,32}$'),
@@ -123,6 +123,11 @@ create table if not exists nl.raw_t2 (
 create index if not exists raw_t2_unfolded_idx on nl.raw_t2 (id) where fold_run is null;
 create index if not exists raw_t2_received_idx on nl.raw_t2 (received_at);
 create index if not exists raw_t2_fold_run_idx on nl.raw_t2 (fold_run) where fold_run is not null;
+
+-- Hour-truncated arrival times: exact timestamps could link a tier-1 and a
+-- tier-2 event sent in the same moment. Re-applied for existing databases.
+alter table nl.raw_t1 alter column received_at set default date_trunc('hour', now());
+alter table nl.raw_t2 alter column received_at set default date_trunc('hour', now());
 
 create table if not exists nl.unmapped_value (
   id         bigserial primary key,
@@ -256,5 +261,48 @@ as $fn$
            else initcap(replace(p_key, '_', ' '))
          end;
 $fn$;
+
+
+-- Cell-key perturbation (defence against n-1 flooding; see DISCLOSURE_CONTROL.md §3a).
+-- Every raw event gets a secret, server-assigned record key in 0..251. Each published
+-- cell carries the sum of its contributors' keys (mod 252); nl.cell_noise() turns that
+-- cell key into a fixed perturbation of -4..+4 applied before rounding. Clients cannot
+-- choose or see keys, so an attacker who floods a cell with fake events cannot place it
+-- on a rounding boundary, and an unchanged cell always gets the same noise.
+create or replace function nl.new_record_key()
+returns smallint
+language sql
+volatile
+as $fn$
+  select ((get_byte(b, 0) * 256 + get_byte(b, 1)) % 252)::smallint
+    from (select uuid_send(gen_random_uuid()) as b) x;
+$fn$;
+
+create or replace function nl.cell_noise(p_key bigint)
+returns integer
+language sql
+immutable
+as $fn$
+  -- 252 is divisible by 9, so a uniform key gives a uniform -4..+4; key 0 gives 0.
+  select (((coalesce(p_key, 0) % 252) % 9 + 4) % 9 - 4)::integer;
+$fn$;
+
+alter table nl.raw_t1 add column if not exists rkey smallint not null default nl.new_record_key()
+  check (rkey between 0 and 251);
+alter table nl.raw_t2 add column if not exists rkey smallint not null default nl.new_record_key()
+  check (rkey between 0 and 251);
+alter table nl.accumulated_cell add column if not exists num_key   integer not null default 0;
+alter table nl.accumulated_cell add column if not exists denom_key integer not null default 0;
+alter table nl.t2_base add column if not exists joined_key  integer not null default 0;
+alter table nl.t2_base add column if not exists arrived_key integer not null default 0;
+
+-- Carry-forward (§5): the true counts behind each published value, kept internally (never
+-- returned to readers) so the next release can tell whether fewer than 5 contributions changed.
+alter table nl.stage_cell add column if not exists num_basis   bigint;
+alter table nl.stage_cell add column if not exists denom_basis bigint;
+alter table nl.stage_cell add column if not exists carried     boolean not null default false;
+alter table nl.published_cell add column if not exists num_true   bigint;
+alter table nl.published_cell add column if not exists denom_true bigint;
+alter table nl.published_cell add column if not exists carried    boolean not null default false;
 
 commit;

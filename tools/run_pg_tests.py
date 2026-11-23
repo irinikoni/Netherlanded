@@ -35,7 +35,7 @@ def reset_data(conn):
     conn.execute(
         'truncate nl.raw_t1, nl.raw_t2, nl.accumulated_cell, nl.t1_cohort, '
         'nl.t2_base, nl.stage_cell, nl.published_cell, nl.suppressed_cell, '
-        'nl.snapshot, nl.unmapped_value, nl.accumulation_run restart identity cascade'
+        'nl.snapshot, nl.unmapped_value, nl.accumulation_run, nl.ingest_rate_limits restart identity cascade'
     )
 
 
@@ -76,6 +76,11 @@ def main():
                     check(f'execute {fname}', True)
                 except Exception as exc:
                     check(f'execute {fname}', False, str(exc))
+
+            # Deterministic record keys (cell-key noise = 0) for every suite that asserts exact
+            # published numbers; section 9 restores random keys and tests the perturbation itself.
+            conn.execute('alter table nl.raw_t1 alter column rkey set default 0')
+            conn.execute('alter table nl.raw_t2 alter column rkey set default 0')
 
             # 2. Isolated live test of db/005_content_editor_security_fix.sql
             try:
@@ -129,6 +134,14 @@ def main():
                         create role authenticated nologin;
                       end if;
                     end $$;
+                """)
+                # Reproduce Supabase's default ACLs: every new table/function/sequence in the
+                # public schema is granted to anon and authenticated (applies to 009 below).
+                conn.execute("""
+                    grant usage on schema public to anon, authenticated;
+                    alter default privileges in schema public grant all on tables to anon, authenticated;
+                    alter default privileges in schema public grant all on functions to anon, authenticated;
+                    alter default privileges in schema public grant all on sequences to anon, authenticated;
                 """)
                 conn.execute(read_sql('006_security_rls_and_scoping.sql'))
                 conn.execute(read_sql('008_scoped_insights.sql'))
@@ -197,8 +210,9 @@ def main():
                 cat_tbl = [t for t in doc['tables'] if t['table_id'] == 't1_inst_category'][0]
                 money_cell = [c for c in cat_tbl['cells'] if c['row'] == 'thuas:money'][0]
                 housing_cell = [c for c in cat_tbl['cells'] if c['row'] == 'thuas:housing'][0]
-                check('authenticated reader gets null num/rate/band and <= 10.0% on tail-capped cell',
-                      money_cell['num'] is None and money_cell['rate'] is None and money_cell['band'] is None and money_cell['rate_display'] == '<= 10.0%',
+                check('authenticated reader gets null num/rate/band and a count-range label on tail-capped cell',
+                      money_cell['num'] is None and money_cell['rate'] is None and money_cell['band'] is None
+                      and money_cell['rate_display'] == 'fewer than 12 of ' + str(money_cell['denom']),
                       str(money_cell))
                 check('authenticated reader gets null num and rate (only band) when denom < 50',
                       housing_cell['num'] is None and housing_cell['rate'] is None and housing_cell['band'] is not None,
@@ -254,37 +268,50 @@ def main():
                 pub_cnt = conn.execute("select count(*) from nl.published_cell where snapshot_id = %s and table_id = 't1_inst_category'", (s2,)).fetchone()[0]
                 check('regression: unchanged 10/15 cell stays published on release 2 (no precision delta)', pub_cnt == 2, f'pub_cnt={pub_cnt}')
 
-                # R2: Sticky suppression expires after 2 releases (no infinite sticky loop)
-                # Move housing +6pp (10/15=66.7% -> 14/18=77.8%)? First suppress by <5pp delta (11/16=68.8% -> 'delta' on R3),
-                # then move >=5pp from R2's 66.7% (to 15/18=83.3%) before R4 -> R4 & R5 stay 'sticky' (2 releases), and R6 recovers!
+                # R2: carry-forward. A change of fewer than 5 contributions republishes the previous
+                # value unchanged (DISCLOSURE_CONTROL.md §5); 5 or more publishes fresh.
+                def housing_row(snap):
+                    return conn.execute("select num, denom, rate, band, carried from nl.published_cell where snapshot_id=%s "
+                                        "and table_id='t1_inst_category' and row_key='thuas:housing'", (snap,)).fetchone()
+                base = housing_row(s2)
                 ingest_t1_chunked(conn, [
-                    {'institution': 'thuas', 'intake': '2026-sep', 'event': 'cohort_joined', 'app_version': '3b32b5914fb6bdfc'},
                     {'institution': 'thuas', 'intake': '2026-sep', 'event': 'step_applies', 'category': 'housing', 'app_version': '3b32b5914fb6bdfc'},
                     {'institution': 'thuas', 'intake': '2026-sep', 'event': 'step_completed', 'category': 'housing', 'app_version': '3b32b5914fb6bdfc'},
                 ])
                 conn.execute('select nl.accumulate()')
-                s3 = conn.execute("select nl.publish_snapshot('delta-r3')").fetchone()[0]
-                r3 = conn.execute("select reason::text from nl.suppressed_cell where snapshot_id=%s and table_id='t1_inst_category' and row_key='thuas:housing'", (s3,)).fetchone()
-                ingest_t1_chunked(conn, [
-                    {'institution': 'thuas', 'intake': '2026-sep', 'event': 'cohort_joined', 'app_version': '3b32b5914fb6bdfc'},
-                    {'institution': 'thuas', 'intake': '2026-sep', 'event': 'cohort_joined', 'app_version': '3b32b5914fb6bdfc'},
-                    {'institution': 'thuas', 'intake': '2026-sep', 'event': 'step_applies', 'category': 'housing', 'app_version': '3b32b5914fb6bdfc'},
-                    {'institution': 'thuas', 'intake': '2026-sep', 'event': 'step_applies', 'category': 'housing', 'app_version': '3b32b5914fb6bdfc'},
-                    {'institution': 'thuas', 'intake': '2026-sep', 'event': 'step_completed', 'category': 'housing', 'app_version': '3b32b5914fb6bdfc'},
-                    {'institution': 'thuas', 'intake': '2026-sep', 'event': 'step_completed', 'category': 'housing', 'app_version': '3b32b5914fb6bdfc'},
-                    {'institution': 'thuas', 'intake': '2026-sep', 'event': 'step_completed', 'category': 'housing', 'app_version': '3b32b5914fb6bdfc'},
-                    {'institution': 'thuas', 'intake': '2026-sep', 'event': 'step_completed', 'category': 'housing', 'app_version': '3b32b5914fb6bdfc'},
-                ])
+                s3 = conn.execute("select nl.publish_snapshot('carry-r3')").fetchone()[0]
+                r3 = housing_row(s3)
+                check('regression: +1 contribution republishes the previous housing value (carried, not withheld)',
+                      r3 is not None and r3[:4] == base[:4] and r3[4] is True, f'base={base}, r3={r3}')
+                ingest_t1_chunked(conn, [{'institution': 'thuas', 'intake': '2026-sep', 'event': 'step_applies', 'category': 'housing', 'app_version': '3b32b5914fb6bdfc'}] * 2)
                 conn.execute('select nl.accumulate()')
-                s4 = conn.execute("select nl.publish_snapshot('sticky-r4')").fetchone()[0]
-                r4 = conn.execute("select reason::text from nl.suppressed_cell where snapshot_id=%s and table_id='t1_inst_category' and row_key='thuas:housing'", (s4,)).fetchone()
-                s5 = conn.execute("select nl.publish_snapshot('sticky-r5')").fetchone()[0]
-                r5 = conn.execute("select reason::text from nl.suppressed_cell where snapshot_id=%s and table_id='t1_inst_category' and row_key='thuas:housing'", (s5,)).fetchone()
-                s6 = conn.execute("select nl.publish_snapshot('recover-r6')").fetchone()[0]
-                r6_pub = conn.execute("select count(*) from nl.published_cell where snapshot_id=%s and table_id='t1_inst_category' and row_key='thuas:housing'", (s6,)).fetchone()[0]
-                check('regression: sticky suppression lasts 2 releases and recovers (no infinite loop)',
-                      r3 == ('delta',) and r4 == ('sticky',) and r5 == ('sticky',) and r6_pub == 1,
-                      f'r3={r3}, r4={r4}, r5={r5}, r6_pub={r6_pub}')
+                s4 = conn.execute("select nl.publish_snapshot('carry-r4')").fetchone()[0]
+                basis4 = conn.execute("select num_true, denom_true from nl.published_cell where snapshot_id=%s and table_id='t1_inst_category' "
+                                      "and row_key='thuas:housing'", (s4,)).fetchone()
+                check('regression: small changes accumulate against the carried basis (3 total -> still carried, basis 10/15)',
+                      housing_row(s4)[4] is True and basis4 == (10, 15), f'basis={basis4}')
+                ingest_t1_chunked(conn, [{'institution': 'thuas', 'intake': '2026-sep', 'event': 'step_applies', 'category': 'housing', 'app_version': '3b32b5914fb6bdfc'}] * 2)
+                conn.execute('select nl.accumulate()')
+                s5 = conn.execute("select nl.publish_snapshot('carry-r5')").fetchone()[0]
+                r5 = housing_row(s5)
+                check('regression: 5 accumulated contributions publish fresh (11/20)',
+                      r5 is not None and r5[4] is False and (r5[0], r5[1]) == (10, 20), f'r5={r5}')
+
+                # R2b: livelock regression. The retired sticky rule cycled two cells of one column through
+                # complementary/sticky forever once the small one passed the floor.
+                reset_data(conn)
+                ingest_t1_chunked(conn, [{'institution': 'thuas', 'intake': '2026-sep', 'event': 'cohort_joined', 'app_version': '3b32b5914fb6bdfc'}] * 20
+                                  + [{'institution': 'thuas', 'intake': '2026-sep', 'event': 'step_applies', 'category': 'housing', 'app_version': '3b32b5914fb6bdfc'}] * 20
+                                  + [{'institution': 'thuas', 'intake': '2026-sep', 'event': 'step_applies', 'category': 'money', 'app_version': '3b32b5914fb6bdfc'}] * 10)
+                conn.execute('select nl.accumulate()')
+                l1 = conn.execute("select nl.publish_snapshot('livelock-1')").fetchone()[0]
+                ingest_t1_chunked(conn, [{'institution': 'thuas', 'intake': '2026-sep', 'event': 'step_applies', 'category': 'money', 'app_version': '3b32b5914fb6bdfc'}] * 10)
+                conn.execute('select nl.accumulate()')
+                l2 = conn.execute("select nl.publish_snapshot('livelock-2')").fetchone()[0]
+                withheld1 = conn.execute("select count(*) from nl.suppressed_cell where snapshot_id=%s and table_id='t1_inst_category'", (l1,)).fetchone()[0]
+                published2 = conn.execute("select count(*) from nl.published_cell where snapshot_id=%s and table_id='t1_inst_category'", (l2,)).fetchone()[0]
+                check('regression: once the small cell passes the floor, both cells publish (no sticky livelock)',
+                      withheld1 == 2 and published2 == 2, f'withheld1={withheld1}, published2={published2}')
 
                 # R3: 15-student contributor floor blocks 3 students emitting 15 health step_applies
                 reset_data(conn)
@@ -735,6 +762,336 @@ def main():
                       len(set(svcs)) == 4 and conc_logs == 4, f'svcs={svcs}, logs={conc_logs}')
             except Exception as exc:
                 check('multi-connection concurrency suite', False, str(exc))
+
+            # 7. Review-fix regressions (ingest strictness, gateway secret, scoping, editor city_id, https)
+            try:
+                def rejects(sql, params, err=psycopg.errors.InvalidParameterValue):
+                    try:
+                        conn.execute('savepoint sp_rf')
+                        conn.execute(sql, params)
+                        conn.execute('rollback to savepoint sp_rf')
+                        return False
+                    except err:
+                        conn.execute('rollback to savepoint sp_rf')
+                        return True
+
+                conn.execute('begin;')
+                base1 = {'institution': 'thuas', 'intake': '2026-sep', 'event': 'cohort_joined', 'app_version': '3b32b5914fb6bdfc'}
+                check('fix: tier-1 rejects the unused n field',
+                      rejects('select nl.ingest_t1_rpc(%s::jsonb)', (json.dumps(dict(base1, n=3)),)))
+                check('fix: tier-2 rejects high_risk on non-scam events',
+                      rejects('select nl.ingest_t2_rpc(%s::jsonb)', (json.dumps({'institution': 'thuas', 'region': 'eu_eea', 'intake': '2026-sep', 'event': 'joined', 'high_risk': True}),)))
+                conn.execute('select nl.ingest_t1_rpc(%s::jsonb)', (json.dumps(base1),))
+                hr = conn.execute("select received_at = date_trunc('hour', received_at) from nl.raw_t1 order by id desc limit 1").fetchone()[0]
+                check('fix: raw received_at is stored hour-truncated', hr is True)
+
+                # gateway secret: enforced once configured
+                conn.execute("insert into nl.ingest_gateway (secret_sha256) values (encode(sha256(convert_to('s3cret', 'UTF8')), 'hex'))")
+                conn.execute("select set_config('request.headers', '{}', true)")
+                check('fix: ingest without gateway header is refused once configured',
+                      rejects('select nl.ingest_t1_rpc(%s::jsonb)', (json.dumps(base1),), psycopg.errors.InsufficientPrivilege))
+                conn.execute("select set_config('request.headers', %s, true)", (json.dumps({'x-nl-ingest-secret': 's3cret'}),))
+                check('fix: ingest with correct gateway header is accepted',
+                      conn.execute('select nl.ingest_t1_rpc(%s::jsonb)', (json.dumps(base1),)).fetchone()[0] == 1)
+                # rotation: a second hash may be active; a third is refused; deleting the old one retires it
+                conn.execute("insert into nl.ingest_gateway (secret_sha256) values (encode(sha256(convert_to('n3w', 'UTF8')), 'hex'))")
+                conn.execute("select set_config('request.headers', %s, true)", (json.dumps({'x-nl-ingest-secret': 'n3w'}),))
+                new_ok = conn.execute('select nl.ingest_t1_rpc(%s::jsonb)', (json.dumps(base1),)).fetchone()[0] == 1
+                conn.execute("select set_config('request.headers', %s, true)", (json.dumps({'x-nl-ingest-secret': 's3cret'}),))
+                old_ok = conn.execute('select nl.ingest_t1_rpc(%s::jsonb)', (json.dumps(base1),)).fetchone()[0] == 1
+                check('fix: secret rotation - old and new gateway secrets both work while two hashes are active', new_ok and old_ok)
+                check('fix: secret rotation - a third active gateway hash is refused (23514)',
+                      rejects("insert into nl.ingest_gateway (secret_sha256) values (encode(sha256(convert_to('x3', 'UTF8')), 'hex'))",
+                              None, psycopg.errors.CheckViolation))
+                conn.execute("delete from nl.ingest_gateway where secret_sha256 = encode(sha256(convert_to('s3cret', 'UTF8')), 'hex')")
+                check('fix: secret rotation - the deleted old secret is refused afterwards',
+                      rejects('select nl.ingest_t1_rpc(%s::jsonb)', (json.dumps(base1),), psycopg.errors.InsufficientPrivilege))
+                conn.execute('rollback;')
+
+                # scoped reader cannot request an older snapshot
+                conn.execute('select nl.publish_snapshot(%s)', ('rf-a',))
+                conn.execute('select nl.publish_snapshot(%s)', ('rf-b',))
+                old_snap = conn.execute('select min(snapshot_id) from nl.snapshot where published').fetchone()[0]
+                conn.execute('begin;')
+                conn.execute('set local role authenticated')
+                conn.execute("select set_config('request.jwt.claims', %s, true)",
+                             (json.dumps({'role': 'authenticated', 'app_metadata': {'role': 'reader', 'institution_id': 'thuas'}}),))
+                check('fix: scoped reader blocked from historic snapshot (42501)',
+                      rejects('select nl.release_json_for_institution(%s, %s)', ('thuas', old_snap), psycopg.errors.InsufficientPrivilege))
+                latest_ok = conn.execute('select nl.release_json_for_institution(%s, null)', ('thuas',)).fetchone()[0]
+                check('fix: scoped reader withheld cells carry no size bucket',
+                      all(h.get('bucket') is None for t in latest_ok['tables'] for h in t['withheld']))
+
+                # editor: municipal card cannot be filed under a shared city via an editable municipality
+                conn.execute("select set_config('request.jwt.claims', %s, true)",
+                             (json.dumps({'sub': 'rf', 'role': 'authenticated', 'app_metadata': {'role': 'editor', 'institution_id': 'thuas'}}),))
+                svc = {'service_id': 'rf_probe', 'name': 'Probe GP', 'service_type': 'gp', 'city_id': 'the-hague',
+                       'municipality_id': 'zoetermeer', 'description': 'Probe card.', 'url': 'https://example.org/'}
+                check('fix: editor blocked from shared city_id with editable municipality (42501)',
+                      rejects('select nl_content.editor_upsert_service(%s::jsonb, %s)', (json.dumps(svc), 'probe'), psycopg.errors.InsufficientPrivilege))
+                svc_http = dict(svc, city_id='zoetermeer', url='http://example.org/')
+                check('fix: http:// service URL rejected (https only)',
+                      rejects('select nl_content.editor_upsert_service(%s::jsonb, %s)', (json.dumps(svc_http), 'probe')))
+                conn.execute('rollback;')
+            except Exception as exc:
+                check('review-fix regression suite', False, str(exc))
+
+            # 8. Privilege-surface invariants (allowlist; any new callable function or open table fails)
+            try:
+                schemas = "('nl', 'nl_content', 'public')"
+                callable_rows = conn.execute(f"""
+                    select r.rolname, n.nspname || '.' || p.proname
+                      from pg_proc p
+                      join pg_namespace n on n.oid = p.pronamespace
+                      cross join (select rolname from pg_roles where rolname in ('anon', 'authenticated')) r
+                     where n.nspname in {schemas}
+                       and has_schema_privilege(r.rolname, n.oid, 'USAGE')
+                       and has_function_privilege(r.rolname, p.oid, 'EXECUTE')""").fetchall()
+                got = {}
+                for role, fn in callable_rows:
+                    got.setdefault(role, set()).add(fn)
+                allow = {
+                    'anon': {'nl.ingest_t1_rpc', 'nl.ingest_t2_rpc'},
+                    'authenticated': {'nl.ingest_t1_rpc', 'nl.ingest_t2_rpc', 'nl.release_json_for_institution',
+                                      'nl_content.editor_list', 'nl_content.editor_upsert_service',
+                                      'nl_content.editor_upsert_step_local', 'nl_content.editor_publish_fact',
+                                      'nl_content.editor_mark_verified', 'public.can_edit_city'},
+                }
+                for role in ('anon', 'authenticated'):
+                    extra = sorted(got.get(role, set()) - allow[role])
+                    check(f'surface: {role} can call only allowlisted functions (Supabase default ACLs applied)', not extra, str(extra))
+                no_rls = conn.execute(f"""
+                    select n.nspname || '.' || c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
+                     where c.relkind in ('r', 'p') and n.nspname in {schemas} and not c.relrowsecurity""").fetchall()
+                check('surface: every table in nl / nl_content / public has RLS enabled', not no_rls, str(no_rls))
+                grants = conn.execute(f"""
+                    select grantee, table_schema || '.' || table_name, privilege_type
+                      from information_schema.role_table_grants
+                     where grantee in ('anon', 'authenticated', 'PUBLIC') and table_schema in {schemas}""").fetchall()
+                check('surface: anon/authenticated/PUBLIC hold no table or view privileges', not grants, str(grants[:5]))
+                policies = conn.execute(f"select schemaname || '.' || tablename from pg_policies where schemaname in {schemas}").fetchall()
+                check('surface: no RLS policies exist (all access goes through SECURITY DEFINER RPCs)', not policies, str(policies))
+                bad_definer = conn.execute(f"""
+                    select n.nspname || '.' || p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                     where n.nspname in {schemas} and p.prosecdef
+                       and not exists (select 1 from unnest(coalesce(p.proconfig, '{{}}')) x where x like 'search_path=%')""").fetchall()
+                check('surface: every SECURITY DEFINER function pins search_path', not bad_definer, str(bad_definer))
+
+                conn.execute('begin;')
+                conn.execute('set local role anon')
+                check('surface: anon cannot rewrite public.institution_campuses (shared-city escalation)',
+                      rejects("delete from public.institution_campuses where city_id = 'the-hague'", None,
+                              psycopg.errors.InsufficientPrivilege))
+                conn.execute('rollback;')
+            except Exception as exc:
+                check('privilege-surface invariant suite', False, str(exc))
+
+            # 9. Cell-key perturbation: defence against n-1 flooding (tools/pentest/n1_flooding.py)
+            try:
+                conn.execute('alter table nl.raw_t1 alter column rkey set default nl.new_record_key()')
+                conn.execute('alter table nl.raw_t2 alter column rkey set default nl.new_record_key()')
+                reset_data(conn)
+                ev = lambda **k: dict({'institution': 'thuas', 'intake': '2027-feb', 'app_version': 'abcd1234'}, **k)
+                conn.execute('begin;')
+                check('cell-key: client cannot supply its own record key (22023)',
+                      rejects('select nl.ingest_t1_rpc(%s::jsonb)', (json.dumps(ev(event='cohort_joined', rkey=0)),)))
+                conn.execute('rollback;')
+                noise_ok = conn.execute(
+                    'select min(nl.cell_noise(k)) = -4 and max(nl.cell_noise(k)) = 4 and nl.cell_noise(0) = 0 '
+                    'and count(distinct nl.cell_noise(k)) = 9 from generate_series(0, 251) k').fetchone()[0]
+                check('cell-key: noise is -4..+4, all 9 values reachable, key 0 means no noise', noise_ok is True)
+
+                def n1_trial(real_completed):
+                    reset_data(conn)
+                    fakes = ([ev(event='cohort_joined')] * 14 + [ev(event='step_applies', category='housing')] * 19
+                             + [ev(event='step_completed', category='housing')] * 12)
+                    real = [ev(event='cohort_joined'), ev(event='step_applies', category='housing')]
+                    if real_completed:
+                        real.append(ev(event='step_completed', category='housing'))
+                    conn.execute('select nl.ingest_t1_rpc(%s::jsonb)', (json.dumps(fakes + real),))
+                    conn.execute('select nl.accumulate()')
+                    snap = conn.execute("select nl.publish_snapshot('n1')").fetchone()[0]
+                    row = conn.execute("select num, denom from nl.published_cell where snapshot_id = %s and "
+                                       "table_id = 't1_inst_category' and row_key = 'thuas:housing'", (snap,)).fetchone()
+                    return row, snap
+
+                trials = 150
+                dist = {True: {}, False: {}}
+                for real_completed in (True, False):
+                    for _ in range(trials):
+                        row, _snap = n1_trial(real_completed)
+                        dist[real_completed][row] = dist[real_completed].get(row, 0) + 1
+                outcomes = set(dist[True]) | set(dist[False])
+                tvd = sum(abs(dist[True].get(o, 0) - dist[False].get(o, 0)) for o in outcomes) / (2 * trials)
+                accuracy = 0.5 + tvd / 2
+                check('cell-key: n-1 flooding attacker accuracy <= 0.66 (was 1.00 before cell keys; theory ~0.56)',
+                      accuracy <= 0.66, f'accuracy={accuracy:.3f}, outcomes={len(outcomes)}')
+
+                # consistency: an unchanged cell republishes identically (no averaging across snapshots)
+                _row, s1 = n1_trial(True)
+                s2 = conn.execute("select nl.publish_snapshot('n1-repeat')").fetchone()[0]
+                same = conn.execute(
+                    'select count(*) = 0 from (select table_id, row_key, col_key, num, denom from nl.published_cell where snapshot_id = %s '
+                    'except select table_id, row_key, col_key, num, denom from nl.published_cell where snapshot_id = %s) d',
+                    (s1, s2)).fetchone()[0]
+                check('cell-key: unchanged cells republish with identical noise', same is True)
+                bounded = conn.execute(
+                    'select bool_and(abs(p.num - a.num) <= 6 and abs(p.denom - greatest(a.denom, 15)) <= 6) '
+                    'from nl.published_cell p join nl.accumulated_cell a using (table_id, row_key, col_key) '
+                    'where p.snapshot_id = %s', (s2,)).fetchone()[0]
+                check('cell-key: published counts stay within 6 of the true counts (noise 4 + rounding 2)', bounded is True)
+                conn.execute('alter table nl.raw_t1 alter column rkey set default 0')
+                conn.execute('alter table nl.raw_t2 alter column rkey set default 0')
+            except Exception as exc:
+                check('cell-key perturbation suite', False, str(exc))
+
+            # 10. Benchmark (pooled) cells: >= 3 institutions and no dominant institution (P3)
+            try:
+                def pooled_state(counts):
+                    reset_data(conn)
+                    b = []
+                    for inst, n in counts.items():
+                        b += [{'institution': inst, 'intake': '2026-sep', 'event': 'cohort_joined', 'app_version': 'abcd1234'}] * 20
+                        b += [{'institution': inst, 'intake': '2026-sep', 'event': 'step_applies', 'category': 'housing', 'app_version': 'abcd1234'}] * n
+                        b += [{'institution': inst, 'intake': '2026-sep', 'event': 'step_completed', 'category': 'housing', 'app_version': 'abcd1234'}] * (n // 2)
+                    ingest_t1_chunked(conn, b)
+                    conn.execute('select nl.accumulate()')
+                    snap = conn.execute("select nl.publish_snapshot('pooled')").fetchone()[0]
+                    pub = conn.execute("select count(*) from nl.published_cell where snapshot_id = %s and table_id = 't1_category_totals' "
+                                       "and row_key = 'housing'", (snap,)).fetchone()[0]
+                    return pub == 1
+                check('benchmark: a pooled cell with only 2 institutions is withheld (no subtraction of the other school)',
+                      not pooled_state({'thuas': 40, 'uva': 40}))
+                check('benchmark: a pooled cell with 3 balanced institutions is published',
+                      pooled_state({'thuas': 40, 'uva': 40, 'leiden': 40}))
+                check('benchmark: a pooled cell where one institution dominates the rest is withheld',
+                      not pooled_state({'thuas': 200, 'uva': 40, 'leiden': 20}))
+            except Exception as exc:
+                check('benchmark publication rule suite', False, str(exc))
+
+            # 11. Mutation-gap tests: each kills a mutation that survived tools/mutation_check.py
+            try:
+                T = {'institution': 'thuas', 'intake': '2026-sep', 'app_version': 'abcd1234'}
+                t1e = lambda **k: dict(T, **k)
+
+                # identity fields (privacy policy section 16); tier 1 and tier 2, any case
+                conn.execute('begin;')
+                bad_t1 = [k for k in ('sid', 'SID', 'session_id', 'user_id', 'email', 'ip', 'device_id', 'installation_id')
+                          if not rejects('select nl.ingest_t1_rpc(%s::jsonb)', (json.dumps(t1e(event='cohort_joined', **{k: 'x'})),))]
+                bad_t2 = [k for k in ('sid', 'Session_Id', 'uid', 'ip_address', 'deviceid', 'install_id')
+                          if not rejects('select nl.ingest_t2_rpc(%s::jsonb)', (json.dumps({'institution': 'thuas', 'region': 'eu_eea',
+                                         'intake': '2026-sep', 'event': 'joined', k: 'x'}),))]
+                check('gap: identity fields are rejected by both tiers in any letter case (22023)', not bad_t1 and not bad_t2,
+                      f't1={bad_t1}, t2={bad_t2}')
+                # batch cap (M04)
+                check('gap: a batch of 101 events is rejected (22023)',
+                      rejects('select nl.ingest_t1_rpc(%s::jsonb)', (json.dumps([t1e(event='cohort_joined')] * 101),)))
+                conn.execute('rollback;')
+
+                # rate limiter counts events (M14)
+                reset_data(conn)
+                before = conn.execute("select coalesce(sum(req_count), 0) from nl.ingest_rate_limits where tier = 1 "
+                                      "and bucket_hour = date_trunc('hour', now())").fetchone()[0]
+                ingest_t1_chunked(conn, [t1e(event='cohort_joined')] * 50)
+                after = conn.execute("select coalesce(sum(req_count), 0) from nl.ingest_rate_limits where tier = 1 "
+                                     "and bucket_hour = date_trunc('hour', now())").fetchone()[0]
+                check('gap: one 50-event request counts 50 towards the rate limit (events, not requests)', after - before == 50,
+                      f'delta={after - before}')
+
+                # secondary suppression of a lone withheld cell (M09) + no buckets for scoped readers (M16)
+                reset_data(conn)
+                ingest_t1_chunked(conn, [t1e(event='cohort_joined')] * 20
+                                  + [t1e(event='step_applies', category='housing')] * 40
+                                  + [t1e(event='step_applies', category='money')] * 40
+                                  + [t1e(event='step_applies', category='health')] * 40
+                                  + [t1e(event='step_applies', category='work')] * 6)
+                conn.execute('select nl.accumulate()')
+                snap = conn.execute("select nl.publish_snapshot('secondary')").fetchone()[0]
+                withheld = dict(conn.execute("select row_key, reason::text from nl.suppressed_cell where snapshot_id = %s "
+                                             "and table_id = 't1_inst_category'", (snap,)).fetchall())
+                check('gap: a lone floor-withheld category also withholds its smallest sibling (secondary suppression, 4 categories)',
+                      withheld.get('thuas:work') == 'floor' and len(withheld) == 2
+                      and sorted(withheld.values()) == ['complementary', 'floor'], str(withheld))
+                conn.execute('begin;')
+                conn.execute('set local role authenticated')
+                conn.execute("select set_config('request.jwt.claims', %s, true)",
+                             (json.dumps({'role': 'authenticated', 'app_metadata': {'role': 'reader', 'institution_id': 'thuas'}}),))
+                rdoc = conn.execute("select nl.release_json_for_institution('thuas', null)").fetchone()[0]
+                conn.execute('rollback;')
+                held = [h for t in rdoc['tables'] for h in t['withheld']]
+                pdoc = conn.execute('select nl.release_json(null)').fetchone()[0]
+                pooled_held = [h for t in pdoc['tables'] for h in t['withheld']]
+                check('gap: scoped readers get withheld cells without size buckets (privileged view still has them)',
+                      len(held) >= 2 and all(h.get('bucket') is None for h in held)
+                      and any(h.get('bucket') is not None for h in pooled_held), f'held={len(held)}')
+
+                # benchmark dominance on one count only (M12)
+                def pooled_published(spec):
+                    reset_data(conn)
+                    b = []
+                    for inst, (applies, completes) in spec.items():
+                        tpl = dict(T, institution=inst)
+                        b += [dict(tpl, event='cohort_joined')] * 20
+                        b += [dict(tpl, event='step_applies', category='housing')] * applies
+                        b += [dict(tpl, event='step_completed', category='housing')] * completes
+                    ingest_t1_chunked(conn, b)
+                    conn.execute('select nl.accumulate()')
+                    sn = conn.execute("select nl.publish_snapshot('dominance')").fetchone()[0]
+                    return conn.execute("select count(*) from nl.published_cell where snapshot_id = %s and table_id = 't1_category_totals' "
+                                        "and row_key = 'housing'", (sn,)).fetchone()[0] == 1
+                check('gap: benchmark withheld when only the denominator is dominated',
+                      not pooled_published({'thuas': (200, 20), 'uva': (40, 20), 'leiden': (40, 20)}))
+                check('gap: benchmark withheld when only the numerator is dominated',
+                      not pooled_published({'thuas': (40, 38), 'uva': (40, 2), 'leiden': (40, 2)}))
+
+                # retention reporting (M24) and health (M25)
+                reset_data(conn)
+                conn.execute("insert into nl.raw_t1 (institution, intake, event, app_version, received_at) "
+                             "values ('thuas', '2026-sep', 'cohort_joined', 'abcd1234', now() - interval '4 hours')")
+                h = conn.execute('select nl.health()').fetchone()[0]
+                check('gap: health flags a stalled fold (unprocessed row older than 3 h)', h.get('fold_stalled') is True and h.get('ok') is False, str(h))
+                conn.execute("insert into nl.raw_t1 (institution, intake, event, app_version, received_at) "
+                             "values ('thuas', '2026-sep', 'cohort_joined', 'abcd1234', now() - interval '26 hours')")
+                lost = dict(conn.execute('select store, removed from nl.purge_raw()').fetchall())
+                check('gap: purge_raw reports raw rows that expired unprocessed', lost.get('raw_unfolded_expired') == 1, str(lost))
+                reset_data(conn)
+
+                # editor: https-only links and safe labels (M22)
+                conn.execute('begin;')
+                conn.execute('set local role authenticated')
+                conn.execute("select set_config('request.jwt.claims', %s, true)",
+                             (json.dumps({'sub': 'gap', 'role': 'authenticated', 'app_metadata': {'role': 'editor', 'institution_id': 'thuas'}}),))
+                step = {'step_id': 'register_gp', 'municipality_id': 'zoetermeer', 'for_institution_id': 'thuas', 'body': 'Local GP guidance.'}
+                check('gap: step links must be https (22023)',
+                      rejects('select nl_content.editor_upsert_step_local(%s::jsonb, %s)',
+                              (json.dumps(dict(step, links=[{'url': 'http://example.org/', 'label': 'GP list'}])), 'gap test')))
+                for bad_date in ('44318707', '2026-13-45', '2026-02-30', '+1000-01-01'):
+                    ok_date = rejects('select nl_content.editor_upsert_step_local(%s::jsonb, %s)',
+                                      (json.dumps(dict(step, last_verified=bad_date)), 'gap test'))
+                    if not ok_date:
+                        break
+                check('gap: malformed or impossible dates give a clear 22023 validation error (not 22007/22008)', ok_date, f'last={bad_date}')
+                check('gap: link labels with markup are rejected (22023)',
+                      rejects('select nl_content.editor_upsert_step_local(%s::jsonb, %s)',
+                              (json.dumps(dict(step, links=[{'url': 'https://example.org/', 'label': '<img src=x onerror=alert(1)>'}])), 'gap test')))
+                conn.execute('rollback;')
+
+                # editor: the ownership check holds a per-service lock until commit (M23)
+                with psycopg.connect(uri, autocommit=True) as conn_a, psycopg.connect(uri, autocommit=True) as conn_b:
+                    conn_a.execute('begin;')
+                    conn_a.execute('set local role authenticated')
+                    conn_a.execute("select set_config('request.jwt.claims', %s, true)",
+                                   (json.dumps({'sub': 'gap', 'role': 'authenticated', 'app_metadata': {'role': 'editor', 'institution_id': 'thuas'}}),))
+                    conn_a.execute('select nl_content.editor_upsert_service(%s::jsonb, %s)',
+                                   (json.dumps({'service_id': 'gap_lock_probe', 'name': 'Lock probe', 'service_type': 'support',
+                                                'city_id': 'the-hague', 'municipality_id': 'the-hague', 'for_institution_id': 'thuas',
+                                                'description': 'Lock probe card.', 'url': 'https://example.org/'}), 'gap test'))
+                    got = conn_b.execute("select pg_try_advisory_xact_lock(hashtext('nl_content.service:gap_lock_probe'))").fetchone()[0]
+                    conn_a.execute('rollback;')
+                check('gap: a concurrent writer cannot take the service lock while an upsert is open (no check-then-write race)',
+                      got is False)
+            except Exception as exc:
+                check('mutation-gap suite', False, str(exc))
 
     finally:
         if pg is not None:

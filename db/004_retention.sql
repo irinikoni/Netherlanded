@@ -64,7 +64,19 @@ declare
   v5 bigint := 0;
   v6 bigint := 0;
   v7 bigint := 0;
+  v_lost1 bigint := 0;
+  v_lost2 bigint := 0;
 begin
+  -- Rows that expire before any fold are lost data: surface it instead of failing silently.
+  select count(*) into v_lost1 from nl.raw_t1
+   where fold_run is null and received_at < now() - interval '24 hours';
+  select count(*) into v_lost2 from nl.raw_t2
+   where fold_run is null and received_at < now() - interval '48 hours';
+  if v_lost1 + v_lost2 > 0 then
+    raise warning 'purge_raw: % tier-1 and % tier-2 rows expired unfolded (is nl.accumulate() scheduled?)',
+      v_lost1, v_lost2;
+  end if;
+
   perform set_config('nl.allow_maintenance', 'on', true);
 
   delete from nl.raw_t1 r
@@ -111,6 +123,7 @@ begin
   store := 'unmapped_value';     removed := v5; return next;
   store := 'accumulation_run';   removed := v6; return next;
   store := 'ingest_rate_limits'; removed := v7; return next;
+  store := 'raw_unfolded_expired'; removed := v_lost1 + v_lost2; return next;
   return;
 end;
 $fn$;
@@ -153,7 +166,11 @@ as $fn$
       from oldest
   )
   select jsonb_build_object(
-    'ok', (select coalesce(t1_hours, 0) < 24.0 and coalesce(t2_hours, 0) < 48.0 from age),
+    'ok', (select coalesce(t1_hours, 0) < 24.0 and coalesce(t2_hours, 0) < 48.0 from age)
+          and not exists (select 1 from nl.raw_t1 where fold_run is null and received_at < now() - interval '3 hours')
+          and not exists (select 1 from nl.raw_t2 where fold_run is null and received_at < now() - interval '3 hours'),
+    'fold_stalled', exists (select 1 from nl.raw_t1 where fold_run is null and received_at < now() - interval '3 hours')
+                 or exists (select 1 from nl.raw_t2 where fold_run is null and received_at < now() - interval '3 hours'),
     'checked_at', now(),
     'raw_t1_unfolded', (select count(*) from nl.raw_t1 where fold_run is null),
     'raw_t2_unfolded', (select count(*) from nl.raw_t2 where fold_run is null),

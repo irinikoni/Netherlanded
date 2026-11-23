@@ -14,8 +14,12 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const PROXY_SECRET = Deno.env.get("NL_PROXY_SECRET") ?? "";
 
+// Fail closed: without NL_PROXY_SECRET every request is refused, unless the
+// deployment explicitly opts into direct access for local development.
+const ALLOW_DIRECT_DEV = Deno.env.get("NL_ALLOW_DIRECT_DEV") === "1";
+
 function checkProxySecret(req: Request): boolean {
-  if (!PROXY_SECRET) return true;
+  if (!PROXY_SECRET) return ALLOW_DIRECT_DEV;
   const supplied = req.headers.get("x-nl-proxy-secret") ?? "";
   const a = new TextEncoder().encode(supplied);
   const b = new TextEncoder().encode(PROXY_SECRET);
@@ -142,8 +146,11 @@ async function callEditorRpc(
   if (resp.status === 401) {
     return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers });
   }
+  // Only messages raised by our own RPCs (22023 / 42501) are safe to echo; other
+  // database errors (constraint names, casts) would reveal schema internals.
+  const ownMessage = (errJson?.code === "22023" || errJson?.code === "42501") ? errJson?.message : undefined;
   if (resp.status === 403 || errJson?.code === "42501") {
-    return new Response(JSON.stringify({ error: "forbidden", detail: errJson?.message ?? "forbidden" }), {
+    return new Response(JSON.stringify({ error: "forbidden", detail: ownMessage ?? "forbidden" }), {
       status: 403,
       headers,
     });
@@ -155,7 +162,7 @@ async function callEditorRpc(
     errJson?.code === "22007" ||
     errJson?.code === "23514"
   ) {
-    return new Response(JSON.stringify({ error: "invalid_payload", detail: errJson?.message ?? "invalid_payload" }), {
+    return new Response(JSON.stringify({ error: "invalid_payload", detail: ownMessage ?? "invalid_payload" }), {
       status: 400,
       headers,
     });

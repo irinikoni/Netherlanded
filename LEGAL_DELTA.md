@@ -96,7 +96,7 @@ These no longer need a text change but are listed so the documents match the bui
 
 | Item | Status in consolidated v2.1 package | Where addressed / remaining action |
 |---|---|---|
-| 1. Named controller & Art. 28 agreement | **Open (governance decision)** | Settle controller choice (`DISCLOSURE_CONTROL.md` §8 vs. item 1 above) with THUAS FG and fill `TERMS_AND_PRIVACY.md` §11 |
+| 1. Named controller & Art. 28 agreement | **Drafted, pending counsel and FG** | Per-operation split drafted in `DISCLOSURE_CONTROL.md` §8 and `TERMS_AND_PRIVACY.md` §11. It refines item 1 above: the university is controller for its own reports, with Netherlanded as processor; Netherlanded is joint controller for collection and sole controller for the app, logs and benchmarks. Entity: *eenmanszaak* (KVK placeholders still to fill) |
 | 2. Supabase Art. 28 DPA & Art. 30 record | **Open (pre-launch ops)** | Sign Supabase EU DPA and complete Art. 30 record; documented in `TERMS_AND_PRIVACY.md` §13 & `COMPLIANCE_CHECK.md` |
 | 3. Recipients listed (Art. 13(1)(e)) | **Partly resolved** | `TERMS_AND_PRIVACY.md` §13 names participating universities (aggregate snapshots only), hosting processor, and states no other party receives data; final entity names still to be filled |
 | 4. Contractual ban on individual decisions | **Open (legal agreement)** | Stated in `TERMS_AND_PRIVACY.md` §13 & `DISCLOSURE_CONTROL.md` §7; still requires signed university agreements |

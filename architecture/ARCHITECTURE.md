@@ -431,7 +431,7 @@ A second, separate database gives a partner university anonymous totals about it
 - **Two tiers of anonymous totals (policy 1.9).** *Tier 1, basic app statistics:* on after the Terms, under the Dutch analytics exception (Telecommunicatiewet 11.7a) and legitimate interest (Art. 6(1)(f), `legal/LEGITIMATE_INTEREST_ASSESSMENT.md`), with an objection switch in Profile. Counts only app version, school, intake semester, broad step category and applies/finished, plus one technical-error count. Shown to students on a notice screen of its own (Continue / Object) before counting starts. Universities receive Tier 1 only as approved snapshots from a release function (15/15 rule, complementary and change suppression, monthly; `legal/DISCLOSURE_CONTROL.md`, not built). Stored in `nl-basic`, sent to `NL_BASIC_URL` (not built). *Tier 2, additional statistics:* the university counters, opt-in on consent (Art. 6(1)(a)). After the Terms, a separate screen asks once, with equal Yes and No buttons and a "Decide later" that asks once more after 3 finished steps or 3 weeks. Nothing is counted or stored for statistics before a yes; a no, or switching off later, deletes the counts on the phone.
 - **Retention.** `purge_expired_data()` deletes an account 12 months after arrival. One delete of `app_user` removes progress, events, devices and reminders.
 - **IP addresses.** The functions store and log nothing about a request, but Supabase's own gateway logs the client address (7 days on the Pro plan). The policy says so.
-- **No controller is named yet.** That decision blocks launch.
+- **Controller split drafted** (`DISCLOSURE_CONTROL.md` §8): an *eenmanszaak* to be registered before the pilot; counsel review and entity details still block launch.
 
 ---
 
@@ -502,7 +502,7 @@ These are structural, not to-do items. Each needs a decision before or while acc
 
 ## 14. Build order from here
 
-1. Decide the controller (blocks everything public). The statistics default is decided: opt-in.
+1. Confirm the drafted controller split with counsel and register the *eenmanszaak* (blocks everything public). The statistics default is decided: opt-in.
 2. A no-accounts pilot: host the app, sharing opt-in, test with real students on real phones.
 3. Deploy both databases and the three functions; change `ingest()` to the intake semester; run the live attack list.
 4. The app side of accounts (gap 1), then reminders.

@@ -13,9 +13,16 @@ const ALLOWED_ORIGINS = (Deno.env.get("ALLOWED_ORIGINS") ?? "")
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const PROXY_SECRET = Deno.env.get("NL_PROXY_SECRET") ?? "";
+// Forwarded to PostgREST and checked by nl.check_ingest_gateway(), so the public
+// anon key alone cannot call the ingest RPCs directly around this function.
+const INGEST_SECRET = Deno.env.get("NL_INGEST_SECRET") ?? "";
+
+// Fail closed: without NL_PROXY_SECRET every request is refused, unless the
+// deployment explicitly opts into direct access for local development.
+const ALLOW_DIRECT_DEV = Deno.env.get("NL_ALLOW_DIRECT_DEV") === "1";
 
 function checkProxySecret(req: Request): boolean {
-  if (!PROXY_SECRET) return true;
+  if (!PROXY_SECRET) return ALLOW_DIRECT_DEV;
   const supplied = req.headers.get("x-nl-proxy-secret") ?? "";
   const a = new TextEncoder().encode(supplied);
   const b = new TextEncoder().encode(PROXY_SECRET);
@@ -157,6 +164,7 @@ Deno.serve(async (req: Request) => {
         "Accept-Profile": "nl",
         "apikey": SUPABASE_ANON_KEY,
         "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+        ...(INGEST_SECRET ? { "x-nl-ingest-secret": INGEST_SECRET } : {}),
       },
       body: JSON.stringify({ p: parsed }),
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
@@ -181,7 +189,9 @@ Deno.serve(async (req: Request) => {
   if (resp.status === 429 || (errJson?.code === "P0001" && errJson?.message === "rate_limit_exceeded")) {
     return new Response(null, { status: 429, headers: securityHeaders(origin, false) });
   }
-  if (resp.status === 400 && (errJson?.code === "22023" || errJson?.code === "22P02")) {
+  // Any other 400 from PostgREST is a malformed payload (SQLSTATE class 22: invalid JSON escapes,
+  // casts, our own 22023 validation), never an upstream failure.
+  if (resp.status === 400) {
     return new Response(JSON.stringify({ error: "invalid_payload" }), { status: 400, headers });
   }
   return new Response(JSON.stringify({ error: "upstream_error" }), { status: 502, headers });
