@@ -8,3 +8,9 @@ venv/
 .DS_Store
 Thumbs.db
 *.log
+
+# tokenade — per-project cache / scaffold flag / dedup refs
+.tokenade/
+
+# tokenade — legacy per-project embedding model cache (now global)
+.fastembed_cache/
