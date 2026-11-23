@@ -32,7 +32,7 @@
 
 | # | Requirement | Status | Action needed |
 |---|---|---|---|
-| 1 | Controller named with contact details (Art. 13(1)(a)) | **Not met** | Fill in the controller's name and a working e-mail address that will be answered for the life of the app |
+| 1 | Controller named with contact details (Art. 13(1)(a)) | **Drafted** | Per-operation split in `TERMS_AND_PRIVACY.md` §11. Fill in the *eenmanszaak* trade name, owner, KVK number, address and a working e-mail address that will be answered for the life of the app |
 | 2 | Every category of data listed | **Not met** (full app) | Missing from section 12 for the full app: e-mail address (sign-in and reminders), country, study city and home municipality, step notes (free text up to 2,000 characters), push addresses per device, queued reminder texts, IP addresses in sign-in logs |
 | 3 | Recipients and processors named (Art. 13(1)(e)) | **Not met** | Name them: Supabase (database, sign-in, EU region), Brevo (e-mail), GitHub Pages (serves the app; receives visitors' IP addresses), the browser push services of Google, Apple, Mozilla and Microsoft, and the universities (anonymous totals only) |
 | 4 | Transfers outside the EU (Art. 13(1)(f)) | **Unknown** | GitHub and the push services are US companies; Supabase is a US company hosting in the EU. State the transfer basis per provider after checking each provider's DPA |
@@ -46,7 +46,7 @@
 | 12 | "We never store health information" is true | **Fixed in 2.1** | Replaced absolute claim in section 12 (`LEGAL_DELTA.md` #5): states accurately that `health` category counts (e.g. insurance/GP steps) are processed and published only in groups ≥ 15, never personal health details |
 | 13 | Records of processing (Art. 30) and DPIA screening | **Not met** | One page each |
 | 14 | Staff (university editors and dashboard users) informed | **Not met** | Their e-mail, sign-in logs and change log are personal data. They need their own short notice |
-| 15 | Agreement with universities | **Not met** | Covers: what totals they get, no re-identification attempts, staff accounts, content they publish, and whether they are joint controllers |
+| 15 | Agreement with universities | **Drafted (not signed)** | Three parts per `DISCLOSURE_CONTROL.md` §8: Art. 26 arrangement (joint collection), SURF Model DPA (own reports), and the dashboard service schedule (seats, monthly snapshots, export, 3-year history, availability). Plus no re-identification, staff accounts and published content |
 | 16 | Terms available to save before agreeing (BW 6:234) | Unknown | Make sure the agreement screen links to a version the student can download or keep |
 
 ## Terms of Service: clause review
@@ -85,5 +85,5 @@
 |---|---|---|
 | Controller (to be named) | Signs everything below | Pending |
 | THUAS privacy officer (FG) | University data-sharing, DPIA screening | Pending |
-| Course supervisor | Whether a student may be controller for a service offered to THUAS students | Pending |
+| Course supervisor | Whether a student may be controller for a service offered to THUAS students (moot once the *eenmanszaak* is registered; still confirm there is no conflict with student status) | Pending |
 | Supabase, Brevo | Data processing agreements | Pending |

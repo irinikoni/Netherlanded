@@ -14,7 +14,7 @@ This package implements a technical and legal direction. It is not legal clearan
   - Shared-city content editor privilege fix (`db/005_content_editor_security_fix.sql`).
 
 - **Required before production (open blockers):**
-  1. Settle and name the GDPR controller (`DISCLOSURE_CONTROL.md` §8 vs. `LEGAL_DELTA.md` §1) and fill `[group name]` / `[contact e-mail]` placeholders in `TERMS_AND_PRIVACY.md` (and rebuild `netherlanded-app.html` `<script id="legal">`).
+  1. Have counsel confirm the per-operation controller split (`DISCLOSURE_CONTROL.md` §8), register the *eenmanszaak*, fill the entity placeholders in `TERMS_AND_PRIVACY.md`, and run `tools/sync_legal.py` to rebuild `netherlanded-app.html` `<script id="legal">` (`--check` verifies it).
   2. Complete the DPIA (`LEGAL_DELTA.md` #7), Art. 30 records, signed LIA, and privacy-officer sign-off on Tier 1.
   3. Sign Art. 28 DPAs (Supabase EU region, etc.) and university agreements (use restriction banning individual decisions and re-identification).
   4. Execute `db/001`–`005` on live PostgreSQL 15+, add per-institution RLS/scoping to `nl.release_json()`, configure edge IP stripping (≤ 24h logs) and edge rate limiting, and publish the separate staff privacy notice.

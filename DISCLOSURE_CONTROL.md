@@ -85,16 +85,44 @@ A group of 15 is not automatically anonymous if the university already knows who
 
 **Use restriction**, written into the university agreement: no decisions or interventions concerning individual students; no attempt to re-identify students; no combining with its own records to single out students.
 
-## 8. Controller model (Path B — Multi-Tenant Controller / Art. 28 Processor)
+## 8. Controller model (Path B, per-operation split)
 
-**Adopted architecture (Path B, SURF Model DPA):**
-- **Each contracted participating university is the independent GDPR controller** for its own incoming students' onboarding analytics under a signed **SURF Model Data Processing Agreement (*Verwerkersovereenkomst*, Art. 28 GDPR)**. Netherlanded operates strictly as the multi-tenant **Data Processor** (`edge/*` + EU Supabase PostgreSQL) on behalf of each contracting institution.
-- **No cross-university joint controllership:** Each university receives only its own institution's disclosure-controlled snapshots (`db/008_scoped_insights.sql`); universities never see other institutions' data or raw counters, and per-institution complementary suppression is strictly isolated.
-- **Non-partner exclusion:** Students whose selected institution is not flagged as a contracted partner (`nl-partner-institutions`) do not emit institution-scoped Tier 1 metrics.
-- **National benchmark clause:** Each SURF Model DPA authorizes Netherlanded to compile irreversible, disclosure-controlled national benchmarks (GDPR Recital 26: floor >= 15, rounded to 5, zero personal data).
-- **Use restriction:** Written into every university agreement — zero decisions or interventions concerning individual students, zero attempts to re-identify students, and zero combining with internal university records to single out individuals.
+*Draft for review by external privacy counsel and the partner university's data protection officer (FG). Roles are assigned per processing operation (EDPB Guidelines 07/2020): one party can be a controller for one operation and a processor for another.*
 
-*(This resolves the governance question raised in `LEGAL_DELTA.md` §1 cleanly across 2, 10, or 50 Dutch universities.)*
+**Netherlanded's legal entity:** an *eenmanszaak* (sole proprietorship) registered with the KVK before the pilot. An *eenmanszaak* has no separate legal personality, so the owner is personally the controller and personally liable. This makes professional indemnity and cyber insurance a precondition for signing, and a BV worth considering once revenue allows.
+
+| # | Processing operation | Controller | Netherlanded | Legal basis | Instrument |
+|---|---|---|---|---|---|
+| A | Serving the app; gateway security; IP-free technical logs; rate limiting | Netherlanded | Controller | Art. 6(1)(f): secure, reliable service | Privacy policy §11, §13 |
+| B | Collecting Tier 1 / Tier 2 counts and holding raw events (≤ 24 h / ≤ 48 h) until folded | Netherlanded **and** the partner university, jointly (Art. 26). Netherlanded alone for non-partner students (technical error counts only) | Joint controller | Tier 1: Art. 6(1)(f) + *Tw* 11.7a(3)(b) (Netherlanded is the service provider). Tier 2: consent, Art. 6(1)(a) | **Art. 26 arrangement** in the university agreement |
+| C | Producing the university's own scoped reports and dashboard (`db/008_scoped_insights.sql`) | The partner university | Processor | The university's Art. 6(1)(f) (Tier 1) / consent (Tier 2) | **SURF Model DPA** (*Verwerkersovereenkomst*, Art. 28) |
+| D | National benchmarks across all partner universities (`t1_category_totals`, `t2_step_totals`) | Netherlanded | Controller | Art. 6(1)(f): improving guidance for all students; sector findings | Netherlanded's own LIA (`LEGITIMATE_INTEREST_ASSESSMENT.md` Part 2); disclosed in policy §11, §13 |
+| E | Staff accounts and the content-editor audit log (`nl_content.staff_change`) | Netherlanded | Controller | Art. 6(1)(f): content integrity and accountability | Separate staff privacy notice |
+
+**Why benchmarks are not in the DPA.** A processor may only process for its client's purposes (Art. 28(10)). A cross-university benchmark serves Netherlanded's purpose, so it cannot be "authorised" by each university's DPA. Netherlanded takes it on as controller (operation D) instead. Its output passes the same disclosure-control pipeline and contains no personal data, but compiling it from raw counts is still processing.
+
+**Art. 26 arrangement (operation B): essence to publish.**
+- Netherlanded decides what is counted, the event schema, retention, and the security and disclosure-control measures. The university decides that its cohort is measured for its reports.
+- Netherlanded provides the Art. 13 notice (the in-app policy), is the contact point for data-subject requests, and forwards requests about reports to the university.
+- Data subjects may exercise their rights against either party (Art. 26(3)).
+- Each party reports personal-data breaches affecting operation B to the other within 24 hours. Netherlanded notifies the AP for its own operations A, B, D and E.
+
+**What stays as before:**
+- **No cross-university access.** Each university sees only its own institution's snapshots. Benchmarks are published only as pooled, disclosure-controlled totals.
+- **Non-partner exclusion.** Students of non-partner institutions (`nl-partner-institutions`) emit no institution-level Tier 1 metrics.
+- **Use restriction**, written into every university agreement: no decisions or interventions concerning individual students, no attempts to re-identify students, and no combining with internal records to single out individuals.
+
+**Contractual dashboard entitlement (university agreement, service schedule).** The university's access is a contractual right, not a courtesy:
+- read-only Insights Dashboard access for named staff seats (Standard: up to [10] seats; Enterprise: [unlimited]);
+- a disclosure-controlled snapshot published at least **monthly** during each intake window;
+- CSV export of every published snapshot;
+- published snapshots kept available for **3 years** (matching `nl.purge_raw()`) for intake-on-intake comparison;
+- Content Editor access for the university's own services and single-institution cities;
+- target availability of [99.5]% per month outside announced maintenance, with service credits if missed.
+
+The schedule must also state plainly that **cells failing the disclosure-control rules are withheld**: access to the dashboard is guaranteed, specific numbers are not.
+
+*(Supersedes the earlier "pure processor plus DPA-authorised benchmark" wording. Settles `LEGAL_DELTA.md` §1 subject to counsel review.)*
 
 ## 9. Build list
 
