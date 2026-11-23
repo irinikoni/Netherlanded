@@ -12,15 +12,19 @@ schemas = ["public", "graphql_public", "nl", "nl_content"]
 extra_search_path = ["public", "extensions"]
 max_rows = 1000
 
-# The functions gate themselves: they fail closed without NL_PROXY_SECRET and check the
-# x-nl-proxy-secret header in constant time. The editor forwards the caller's JWT to
-# PostgREST, which verifies it. The gateway JWT check is therefore off, so publishable
-# (non-JWT) keys and the proxy work.
+# Matches the tested settings in architecture/TEST_FINDINGS_SUMMARY.md §4.
+# Staff accounts are created by an admin; nobody may sign themselves up.
+[auth]
+enable_signup = false
+
+# ingest is called by anonymous app installs: no JWT, so the gateway check is off and
+# the function gates itself (fails closed without NL_PROXY_SECRET, constant-time
+# x-nl-proxy-secret check). stats and editor serve signed-in staff and keep it on.
 [functions.ingest]
 verify_jwt = false
 
 [functions.stats]
-verify_jwt = false
+verify_jwt = true
 
 [functions.editor]
-verify_jwt = false
+verify_jwt = true
