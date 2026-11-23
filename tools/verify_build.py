@@ -91,7 +91,11 @@ check("telemetry uses flushQueue with mode:'cors', credentials:'omit', referrerP
 check('telemetry uses batched array POSTs up to 100', 'BATCH_MAX = 100' in js_all and 'batch.map(e=>e.payload)' in js_all)
 check('Tier 1 rolls up campus_of, gates non-partner schools, and emits cohort_joined', 'parentInstitutionId(' in js_all and 'isPartnerInstitution(' in js_all and "event:'cohort_joined'" in js_all)
 check('Profile includes Local reminders & Anonymous statistics switches', 'Local reminders' in js_all and 'id="pf-stats-sec"' in js_all)
-check('Tier 1 notice buttons have equal primary class', 'id="bgObject">Object' in js_all and 'cg-quiet' not in js_all.split('showBasicGate')[1].split('showConsentGate')[0])
+check('Tier 1 notice: legitimate-interest switch on by default, one Continue button, Continue honours the switch',
+      'id="bgSwitch" role="switch" checked' in js_all and 'id="bgObject"' not in js_all
+      and "closeBasicGate(document.getElementById('bgSwitch')?.checked!==false)" in js_all)
+check('Tier 2 consent names both purposes and offers an explicit choice',
+      'National comparisons combine at least 3 institutions' in js_all and 'id="cgYes"' in js_all and 'id="cgNo"' in js_all)
 check('addDays uses calendar Date(y, m, d+n) (DST-safe)', 'new Date(d.getFullYear(),d.getMonth(),d.getDate()+n)' in js_all)
 check('whatIncludedSheet surfaces weekly batch waiting count', 'Waiting for weekly batch' in js_all)
 check('See my data includes _telemetry_queues', '_telemetry_queues' in js_all)
