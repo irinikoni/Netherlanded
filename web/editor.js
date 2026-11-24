@@ -91,6 +91,20 @@
     liveData: null
   };
 
+  var ALLOWED_SUBPATHS = Object.create(null);
+  ALLOWED_SUBPATHS['/service'] = true;
+  ALLOWED_SUBPATHS['/step-local'] = true;
+  ALLOWED_SUBPATHS['/fact'] = true;
+  ALLOWED_SUBPATHS['/verify'] = true;
+
+  function toNullMap(obj) {
+    var out = Object.create(null);
+    if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+      Object.keys(obj).forEach(function (k) { out[k] = obj[k]; });
+    }
+    return out;
+  }
+
   try {
     var saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
     if (saved && saved.pending && ROLES[saved.login]) {
@@ -99,17 +113,18 @@
       E.city = saved.city || 'the-hague';
       E.pending = Array.isArray(saved.pending) ? saved.pending : [];
       E.published = Array.isArray(saved.published) ? saved.published : [];
-      E.facts = saved.facts || Object.create(null);
-      E.services = saved.services || Object.create(null);
+      E.facts = toNullMap(saved.facts);
+      E.services = toNullMap(saved.services);
       E.added = Array.isArray(saved.added) ? saved.added : [];
-      E.local = saved.local || Object.create(null);
+      E.local = toNullMap(saved.local);
       E.addedLocal = Array.isArray(saved.addedLocal) ? saved.addedLocal : [];
-      E.steps = saved.steps || Object.create(null);
-      E.checked = saved.checked || Object.create(null);
+      E.steps = toNullMap(saved.steps);
+      E.checked = toNullMap(saved.checked);
     }
   } catch (_) {}
 
   function keep() {
+    if (E.mode === 'live') { return; }
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         login: E.login,
@@ -998,6 +1013,9 @@
   }
 
   function callLiveEditor(subpath, method, body) {
+    if (subpath !== '' && !Object.prototype.hasOwnProperty.call(ALLOWED_SUBPATHS, subpath)) {
+      return Promise.reject(new Error('Invalid editor endpoint'));
+    }
     var root = document.getElementById('view');
     var base = (root && root.getAttribute('data-endpoint')) || FALLBACK_ENDPOINT;
     var token = null;
@@ -1031,8 +1049,25 @@
     });
   }
 
+  function clearDemoEdits() {
+    E.pending = [];
+    E.facts = Object.create(null);
+    E.services = Object.create(null);
+    E.added = [];
+    E.local = Object.create(null);
+    E.addedLocal = [];
+    E.steps = Object.create(null);
+    E.checked = Object.create(null);
+    E.open = null;
+  }
+
   function loadLiveEditor(isManual) {
     callLiveEditor('', 'GET', null).then(function (data) {
+      var prevInst = E.liveData && E.liveData.meta ? E.liveData.meta.institution_id : null;
+      var nextInst = data && data.meta ? data.meta.institution_id : null;
+      if (E.mode !== 'live' || prevInst !== nextInst) {
+        clearDemoEdits();
+      }
       E.mode = 'live';
       E.liveData = data;
       E.formErr = '';
@@ -1281,8 +1316,8 @@
         }
       } else if (saveKind === 'service-new' || saveKind === 'service-copy' || saveKind === 'service') {
         var url = valOf('url');
-        if (!url || !/^https?:\/\/[^\s"'<>]+$/i.test(url)) {
-          E.formErr = 'Valid website URL starting with https:// or http:// (no spaces) is required.';
+        if (!url || !/^https:\/\/[^\s"'<>\\]+$/.test(url)) {
+          E.formErr = 'Valid website URL starting with https:// (no spaces or backslashes) is required.';
           renderView();
           return;
         }

@@ -23,6 +23,9 @@ function publishableKey(): string {
 }
 const SUPABASE_ANON_KEY = publishableKey();
 const PROXY_SECRET = Deno.env.get("NL_PROXY_SECRET") ?? "";
+// Forwarded to PostgREST and checked by nl.check_ingest_gateway(), so callers with a
+// staff JWT cannot bypass Edge rate limits and body caps via /rest/v1/rpc directly.
+const INGEST_SECRET = Deno.env.get("NL_INGEST_SECRET") ?? "";
 
 // Fail closed: without NL_PROXY_SECRET every request is refused, unless the
 // deployment explicitly opts into direct access for local development.
@@ -128,6 +131,7 @@ Deno.serve(async (req: Request) => {
         "Accept-Profile": "nl",
         "apikey": SUPABASE_ANON_KEY,
         "Authorization": `Bearer ${jwt}`,
+        ...(INGEST_SECRET ? { "x-nl-ingest-secret": INGEST_SECRET } : {}),
       },
       body: JSON.stringify({ p_institution: inst, p_snapshot: null }),
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),

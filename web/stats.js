@@ -781,8 +781,8 @@
     var qInst = null;
     try {
       var qp = new URLSearchParams(window.location.search || '');
-      qInst = qp.get('institution') || state.inst || null;
-    } catch (_) { qInst = state.inst || null; }
+      qInst = qp.get('institution') || null;
+    } catch (_) { qInst = null; }
     if (qInst && url.indexOf('institution=') === -1) {
       url += (url.indexOf('?') === -1 ? '?' : '&') + 'institution=' + encodeURIComponent(qInst);
     }

@@ -206,9 +206,17 @@ def csp_directives(html):
     return out
 
 
-for label, page in (('dashboard.html', dash_html), ('editor.html', ed_html)):
+index_html = read_text('index.html')
+for label, page in (('index.html', index_html), ('netherlanded-app.html', app_txt), ('dashboard.html', dash_html), ('editor.html', ed_html)):
+    check(f'{label} sets no-referrer meta', '<meta name="referrer" content="no-referrer">' in page)
+
+for label, page in (('netherlanded-app.html', app_txt), ('dashboard.html', dash_html), ('editor.html', ed_html)):
     d = csp_directives(page)
     check(f"{label} CSP limits connect-src to 'self' (no scheme-wide https: wildcard)", d.get('connect-src') == ["'self'"], str(d.get('connect-src')))
+
+check('netherlanded-app.html escapes fact() in viewDeadlines',
+      "esc(fact('cak_response_months'))" in app_txt and "esc(fact('cak_fine_eur'))" in app_txt)
+check('editor.js allow-lists live subpaths', 'ALLOWED_SUBPATHS' in ed_js)
 
 # 5. Verify edge/ adapters & security headers
 edge_ingest = read_text('edge/ingest/index.ts')
@@ -218,10 +226,10 @@ edge_conf = read_text('edge/security-headers.conf')
 
 check('edge/ingest uses streaming body cap, fail-closed CORS, proxy secret, and P0001 JSON match',
       'readBodyLimited' in edge_ingest and 'ALLOWED_ORIGINS.includes(origin)' in edge_ingest and 'NL_PROXY_SECRET' in edge_ingest and 'errJson?.code === "P0001"' in edge_ingest)
-check('edge/stats pads base64url JWT with TextDecoder, checks proxy secret, and fails closed on CORS',
-      'TextDecoder' in edge_stats and 'ALLOWED_ORIGINS.includes(origin)' in edge_stats and 'NL_PROXY_SECRET' in edge_stats and 'release_json_for_institution' in edge_stats)
-check('edge/editor uses readBodyLimited, fail-closed CORS, proxy secret, Bearer auth, and editor_list/service/step-local/fact/verify RPCs',
-      'Copyright (c) 2026 Eirini Konidari' in edge_editor and 'readBodyLimited' in edge_editor and 'ALLOWED_ORIGINS.includes(origin)' in edge_editor and 'NL_PROXY_SECRET' in edge_editor and 'editor_list' in edge_editor and 'editor_publish_fact' in edge_editor)
+check('edge/stats pads base64url JWT with TextDecoder, checks proxy secret, forwards ingest secret, and fails closed on CORS',
+      'TextDecoder' in edge_stats and 'ALLOWED_ORIGINS.includes(origin)' in edge_stats and 'NL_PROXY_SECRET' in edge_stats and 'NL_INGEST_SECRET' in edge_stats and 'release_json_for_institution' in edge_stats)
+check('edge/editor uses readBodyLimited, fail-closed CORS, proxy secret, ingest secret, Bearer auth, and editor_list/service/step-local/fact/verify RPCs',
+      'Copyright (c) 2026 Eirini Konidari' in edge_editor and 'readBodyLimited' in edge_editor and 'ALLOWED_ORIGINS.includes(origin)' in edge_editor and 'NL_PROXY_SECRET' in edge_editor and 'NL_INGEST_SECRET' in edge_editor and 'editor_list' in edge_editor and 'editor_publish_fact' in edge_editor)
 check('edge/security-headers.conf has rate limit, SNI, proxy secret header, /api/stats, /api/editor, and /sw.js scope header',
       'limit_req_zone' in edge_conf and 'proxy_ssl_server_name on' in edge_conf and 'X-NL-Proxy-Secret' in edge_conf and 'location = /api/stats' in edge_conf and 'location ~ ^/api/editor' in edge_conf and 'Service-Worker-Allowed' in edge_conf)
 check('edge/security-headers.conf verifies the upstream certificate (proxy_ssl_verify on, trusted CA, depth)',

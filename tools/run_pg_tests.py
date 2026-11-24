@@ -424,6 +424,8 @@ def main():
                 conn.execute(read_sql('009_content_editor.sql'))
                 check('execute 009_content_editor.sql', True)
                 conn.execute(read_sql('010_function_search_path.sql'))
+                conn.execute(read_sql('011_security_hardening.sql'))
+                check('execute 011_security_hardening.sql', True)
                 unpinned = conn.execute("""
                     select n.nspname || '.' || p.proname from pg_proc p
                       join pg_namespace n on n.oid = p.pronamespace
@@ -1110,6 +1112,114 @@ def main():
                     conn_a.execute('rollback;')
                 check('gap: a concurrent writer cannot take the service lock while an upsert is open (no check-then-write race)',
                       got is False)
+
+                # 011_security_hardening regressions
+                reset_data(conn)
+                # 1) view security_invoker & sub-campus deactivation
+                inv_ok = conn.execute(
+                    "select 'security_invoker=true' = any(coalesce(c.reloptions, '{}')) "
+                    "from pg_class c join pg_namespace n on n.oid = c.relnamespace "
+                    "where n.nspname = 'nl' and c.relname = 'retention_status'"
+                ).fetchone()[0]
+                check('011: nl.retention_status sets security_invoker=true', inv_ok is True)
+
+                conn.execute('begin;')
+                check('011: sub-campus institution IDs are inactive and rejected on ingest (22023)',
+                      rejects('select nl.ingest_t1_rpc(%s::jsonb)',
+                              (json.dumps(dict(T, institution='thuas-zoetermeer', event='cohort_joined')),)))
+                conn.execute('rollback;')
+
+                # 2) unmapped_value capped at 500
+                t2_unk = [{'institution': 'thuas', 'region': 'eu_eea', 'intake': '2026-sep',
+                           'event': 'step_applies', 'step': f'unk_{i:04d}'} for i in range(550)]
+                ingest_t2_chunked(conn, t2_unk)
+                conn.execute('select nl.accumulate()')
+                unmapped_cnt = conn.execute('select count(*) from nl.unmapped_value').fetchone()[0]
+                check('011: nl.unmapped_value is capped at 500 rows', unmapped_cnt == 500, f'cnt={unmapped_cnt}')
+                reset_data(conn)
+
+                # 3) gateway secret enforced on stats & editor RPCs
+                conn.execute('begin;')
+                conn.execute("insert into nl.ingest_gateway (secret_sha256) values (encode(sha256(convert_to('gw011', 'UTF8')), 'hex'))")
+                conn.execute('set local role authenticated')
+                conn.execute("select set_config('request.jwt.claims', %s, true)",
+                             (json.dumps({'sub': 'gw-test', 'role': 'authenticated', 'app_metadata': {'role': 'editor', 'institution_id': 'thuas'}}),))
+                conn.execute("select set_config('request.headers', '{}', true)")
+                stats_blk = rejects('select nl.release_json_for_institution(%s, null)', ('thuas',), psycopg.errors.InsufficientPrivilege)
+                ed_blk = rejects('select nl_content.editor_list()', None, psycopg.errors.InsufficientPrivilege)
+                up_blk = rejects('select nl_content.editor_upsert_service(%s::jsonb, %s)',
+                                 (json.dumps({'service_id': 'thuas_io', 'name': 'X', 'service_type': 'support', 'city_id': 'the-hague',
+                                              'municipality_id': 'the-hague', 'for_institution_id': 'thuas', 'description': 'Desc.', 'url': 'https://example.org/'}),
+                                  'test'), psycopg.errors.InsufficientPrivilege)
+                conn.execute("select set_config('request.headers', %s, true)", (json.dumps({'x-nl-ingest-secret': 'gw011'}),))
+                ed_ok = conn.execute('select nl_content.editor_list()').fetchone()[0] is not None
+                stats_ok = conn.execute('select nl.release_json_for_institution(%s, null)', ('thuas',)).fetchone()[0] is not None
+                check('011: stats and editor RPCs require gateway secret when configured', stats_blk and ed_blk and up_blk and ed_ok and stats_ok)
+                conn.execute('rollback;')
+
+                # 4) constraints + editor hijack/override scope + mark_verified canonical key
+                conn.execute('begin;')
+                conn.execute('set local role authenticated')
+                conn.execute("select set_config('request.jwt.claims', %s, true)",
+                             (json.dumps({'sub': 'ed-011', 'role': 'authenticated', 'app_metadata': {'role': 'editor', 'institution_id': 'thuas'}}),))
+                check('011: oversized reason (>500 chars) rejected (22023)',
+                      rejects('select nl_content.editor_upsert_service(%s::jsonb, %s)',
+                              (json.dumps({'service_id': 'thuas_io', 'name': 'THUAS', 'service_type': 'support', 'city_id': 'the-hague',
+                                           'municipality_id': 'the-hague', 'for_institution_id': 'thuas', 'description': 'Desc.', 'url': 'https://example.org/'}),
+                               'x' * 501)))
+                check('011: invalid accepting_students rejected (22023)',
+                      rejects('select nl_content.editor_upsert_service(%s::jsonb, %s)',
+                              (json.dumps({'service_id': 'thuas_io', 'name': 'THUAS', 'service_type': 'support', 'city_id': 'the-hague',
+                                           'municipality_id': 'the-hague', 'for_institution_id': 'thuas', 'description': 'Desc.', 'url': 'https://example.org/',
+                                           'accepting_students': 'maybe'}),
+                               'valid reason')))
+                check('011: municipal service cannot be hijacked into institution override or moved city (42501)',
+                      rejects('select nl_content.editor_upsert_service(%s::jsonb, %s)',
+                              (json.dumps({'service_id': 'zoetermeer_desk', 'name': 'Hijack', 'service_type': 'municipal', 'city_id': 'zoetermeer',
+                                           'municipality_id': 'zoetermeer', 'for_institution_id': 'thuas', 'description': 'Hijack.', 'url': 'https://example.org/'}),
+                               'attempt hijack'), psycopg.errors.InsufficientPrivilege))
+                check('011: institution override for foreign city rejected on service (42501)',
+                      rejects('select nl_content.editor_upsert_service(%s::jsonb, %s)',
+                              (json.dumps({'service_id': 'thuas_ams', 'name': 'Fake', 'service_type': 'support', 'city_id': 'amsterdam',
+                                           'municipality_id': 'amsterdam', 'for_institution_id': 'thuas', 'description': 'Fake.', 'url': 'https://example.org/'}),
+                               'attempt foreign override'), psycopg.errors.InsufficientPrivilege))
+                check('011: institution override for foreign city rejected on step_local (42501)',
+                      rejects('select nl_content.editor_upsert_step_local(%s::jsonb, %s)',
+                              (json.dumps({'step_id': 'register_municipality', 'municipality_id': 'amsterdam',
+                                           'for_institution_id': 'thuas', 'body': 'Fake Amsterdam note.'}),
+                               'attempt foreign step override'), psycopg.errors.InsufficientPrivilege))
+                check('011: editor_mark_verified rejects extra pipe segments in step_local key (22023)',
+                      rejects('select nl_content.editor_mark_verified(%s, %s, %s)',
+                              ('step_local', 'register_municipality|zoetermeer||extra', 'verify test')))
+                conn.execute("select set_config('request.jwt.claims', %s, true)",
+                             (json.dumps({'sub': 'sa-011', 'role': 'authenticated', 'app_metadata': {'role': 'super_admin'}}),))
+                check('011: fact markup rejected (22023)',
+                      rejects('select nl_content.editor_publish_fact(%s::jsonb, %s)',
+                              (json.dumps({'fact_key': 'cak_fine_eur', 'label': 'CAK', 'value': '<b>500</b>', 'unit': 'EUR', 'source_id': 'cak-fine-en'}),
+                               'markup test')))
+                conn.execute('rollback;')
+
+                # 5) concurrent editor_publish_fact serializes without 23505
+                def worker_fact(i):
+                    with psycopg.connect(uri, autocommit=True) as wconn:
+                        wconn.execute('begin;')
+                        wconn.execute('set local role authenticated')
+                        wconn.execute("select set_config('request.jwt.claims', %s, true)",
+                                      (json.dumps({'sub': f'sa-conc-{i}', 'app_metadata': {'role': 'super_admin'}}),))
+                        res = wconn.execute(
+                            'select nl_content.editor_publish_fact(%s::jsonb, %s)',
+                            (json.dumps({'fact_key': 'conc_fact_011', 'label': 'Concurrent fact', 'value': str(100 + i),
+                                         'unit': 'EUR', 'source_id': 'cak-fine-en'}), f'Concurrent fact {i}')
+                        ).fetchone()[0]
+                        wconn.execute('commit;')
+                        return res['fact_id']
+
+                with ThreadPoolExecutor(max_workers=4) as pool:
+                    fids = [f.result() for f in [pool.submit(worker_fact, i) for i in range(4)]]
+                active_cnt = conn.execute("select count(*) from nl_content.fact where fact_key = 'conc_fact_011' and valid_to is null").fetchone()[0]
+                conn.execute("delete from nl_content.fact where fact_key = 'conc_fact_011'")
+                check('011: 4 concurrent editor_publish_fact calls serialize cleanly without 23505',
+                      len(set(fids)) == 4 and active_cnt == 1, f'fids={fids}, active={active_cnt}')
             except Exception as exc:
                 check('mutation-gap suite', False, str(exc))
 

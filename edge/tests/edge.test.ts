@@ -162,10 +162,11 @@ Deno.test("stats and editor: prefer the publishable key, keep forwarding the cal
   for (const [fn, path, method] of [["stats", "/stats?institution=thuas", "GET"], ["editor", "/editor", "GET"]]) {
     const h = await load(fn, { ...BASE_ENV, SUPABASE_PUBLISHABLE_KEYS: JSON.stringify({ default: "sb_publishable_test" }) });
     const calls = mockUpstream(() => new Response("{}", { status: 200, headers: { "content-type": "application/json" } }));
-    await h(req(path, { method, headers: { ...PROXY, authorization: "Bearer user.jwt.value" } }));
+    await h(req(path, { method, headers: { ...PROXY, authorization: "Bearer user.jwt.value", "x-nl-ingest-secret": "client-guess" } }));
     eq(calls.length, 1, `${fn} calls upstream`);
     eq(calls[0].init.headers["apikey"], "sb_publishable_test", `${fn} publishable key used`);
     eq(calls[0].init.headers["Authorization"], "Bearer user.jwt.value", `${fn} caller JWT forwarded`);
+    eq(calls[0].init.headers["x-nl-ingest-secret"], "ingest-secret-value", `${fn} forwards server-side gateway secret, not client header`);
   }
 });
 
