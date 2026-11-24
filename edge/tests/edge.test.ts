@@ -9,7 +9,7 @@ type Handler = (req: Request) => Promise<Response> | Response;
 type Upstream = { url: string; init: RequestInit & { headers: Record<string, string> } };
 
 const ENV_KEYS = [
-  "ALLOWED_ORIGINS", "SUPABASE_URL", "SUPABASE_ANON_KEY", "NL_PROXY_SECRET",
+  "ALLOWED_ORIGINS", "SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_PUBLISHABLE_KEYS", "NL_PROXY_SECRET",
   "NL_INGEST_SECRET", "NL_ALLOW_DIRECT_DEV",
 ];
 const BASE_ENV = {
@@ -149,6 +149,26 @@ for (const fn of ["ingest", "stats", "editor"]) {
 }
 
 // ---------------------------------------------------------------- ingest
+Deno.test("ingest: prefers the publishable key and sends it only as apikey", async () => {
+  const h = await load("ingest", { ...BASE_ENV, SUPABASE_PUBLISHABLE_KEYS: JSON.stringify({ default: "sb_publishable_test" }) });
+  const calls = mockUpstream(() => new Response(null, { status: 204 }));
+  const r = await h(req("/t2", { headers: { ...JSON_HDR, authorization: "Bearer client-token" }, body: goodEvent }));
+  eq(r.status, 204, "accepted");
+  eq(calls[0].init.headers["apikey"], "sb_publishable_test", "publishable key used");
+  eq(calls[0].init.headers["Authorization"], undefined, "no bearer token: neither the client's nor the key");
+});
+
+Deno.test("stats and editor: prefer the publishable key, keep forwarding the caller JWT", async () => {
+  for (const [fn, path, method] of [["stats", "/stats?institution=thuas", "GET"], ["editor", "/editor", "GET"]]) {
+    const h = await load(fn, { ...BASE_ENV, SUPABASE_PUBLISHABLE_KEYS: JSON.stringify({ default: "sb_publishable_test" }) });
+    const calls = mockUpstream(() => new Response("{}", { status: 200, headers: { "content-type": "application/json" } }));
+    await h(req(path, { method, headers: { ...PROXY, authorization: "Bearer user.jwt.value" } }));
+    eq(calls.length, 1, `${fn} calls upstream`);
+    eq(calls[0].init.headers["apikey"], "sb_publishable_test", `${fn} publishable key used`);
+    eq(calls[0].init.headers["Authorization"], "Bearer user.jwt.value", `${fn} caller JWT forwarded`);
+  }
+});
+
 Deno.test("ingest: forwards only the parsed body, the anon key and the gateway secret", async () => {
   const h = await load("ingest", BASE_ENV);
   const calls = mockUpstream(() => new Response(null, { status: 204 }));

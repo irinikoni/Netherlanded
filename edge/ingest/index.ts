@@ -11,7 +11,18 @@ const ALLOWED_ORIGINS = (Deno.env.get("ALLOWED_ORIGINS") ?? "")
   .filter(Boolean);
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+// Prefer the new publishable key (SUPABASE_PUBLISHABLE_KEYS is a JSON object keyed by name);
+// fall back to the legacy anon JWT only while that key still exists on the project.
+function publishableKey(): string {
+  try {
+    const k = JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS") ?? "{}")?.default;
+    if (typeof k === "string" && k) return k;
+  } catch {
+    // malformed JSON: fall through to the legacy key
+  }
+  return Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+}
+const SUPABASE_ANON_KEY = publishableKey();
 const PROXY_SECRET = Deno.env.get("NL_PROXY_SECRET") ?? "";
 // Forwarded to PostgREST and checked by nl.check_ingest_gateway(), so the public
 // anon key alone cannot call the ingest RPCs directly around this function.
@@ -163,7 +174,9 @@ Deno.serve(async (req: Request) => {
         "Content-Profile": "nl",
         "Accept-Profile": "nl",
         "apikey": SUPABASE_ANON_KEY,
-        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+        // A legacy anon key is a JWT and doubles as the bearer token; a publishable key
+        // (sb_publishable_...) is not a JWT and must only travel in apikey.
+        ...(SUPABASE_ANON_KEY.startsWith("sb_") ? {} : { "Authorization": `Bearer ${SUPABASE_ANON_KEY}` }),
         ...(INGEST_SECRET ? { "x-nl-ingest-secret": INGEST_SECRET } : {}),
       },
       body: JSON.stringify({ p: parsed }),
