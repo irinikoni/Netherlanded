@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Eirini Konidari. All rights reserved.
-# Deployed by the Supabase GitHub integration on push to main.
+# The Supabase GitHub integration applies migrations and these settings on push to main;
+# .github/workflows/deploy-functions.yml deploys the function code after CI passes.
 # supabase/migrations and supabase/functions/*/index.ts are generated from db/ and edge/
 # by tools/sync_supabase.py; edit the sources there.
 project_id = "netherlanded"

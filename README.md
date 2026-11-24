@@ -26,7 +26,7 @@ Netherlanded is a checklist and arrival-guidance web application for first-year 
 | `tools/` | `suppress_reference.py` (Python reference engine), `test_suppression.py` (62 checks), `verify_build.py` (162 checks), and `run_pg_tests.py` (live PostgreSQL 16.2 test & multi-connection concurrency runner). |
 | `architecture/` | System architecture (`ARCHITECTURE.md`), `INFRASTRUCTURE.md`, `SECURITY_AUDIT.md`, `PENTEST_PLAN.md` (pentest simulation options, attack scripts in `tools/pentest/`), `TEST_FINDINGS_SUMMARY.md` (condensed tests, findings and fixes), `CHECKLISTS.md`, `SOURCE_AND_BUILD.md`, research (`FACT_CHECK.md`, `CITY_RESEARCH.md`), and design history. |
 | `netherlanded-architecture-v2.2.png`, `netherlanded-legal-overview-v2.2.png` | Current architecture and legal overviews (pentest-hardened build, 23 Nov 2026); HTML sources in `architecture/diagrams/`. The v2.1 images are kept for history. |
-| `.github/workflows/` | GitHub Actions workflows: `ci.yml` (runs all 3 verification suites on push/PR) and `pages.yml` (publishes `index.html`, `netherlanded-app.html`, `sw.js`, and `web/` to GitHub Pages). |
+| `.github/workflows/` | GitHub Actions workflows: `ci.yml` (runs all 3 verification suites on push/PR), `deploy-functions.yml` (after green CI on `main`, deploys `supabase/functions` to Supabase; needs the `SUPABASE_ACCESS_TOKEN` repository secret), `pentest-supabase.yml`, and `pages.yml` (publishes `index.html`, `netherlanded-app.html`, `sw.js`, and `web/` to GitHub Pages). |
 | `index.html` | Static GitHub Pages landing portal linking directly to `netherlanded-app.html`, `web/dashboard.html`, and `web/editor.html` in Demo Mode. |
 
 ## How to preview the app, dashboard, and editor
