@@ -95,7 +95,7 @@ CI runs everything except the mutation check (it takes about 10 minutes), the br
 - **Your decision:** limit Tier 1 benchmark use to improving the app (the analytics exception, Tw 11.7a(3)(b)); base public or sector reporting only on Tier 2.
 - **Blocked tests** (real PostgREST and Supabase logins are now covered by the GitHub Actions workflow):
   - A hosted staging project: platform logs containing IPs, and the real backup window.
-  - Capturing the weekly statistics batch in the browser.
+  - Capturing the daily statistics batch in the browser (also fires automatically on checklist completion).
 - **Before launch:**
   - Set `NL_PROXY_SECRET` / `NL_INGEST_SECRET` and the `nl.ingest_gateway` row.
   - Match the hosted Supabase project to the tested settings: `nl` and `nl_content` exposed, public signup off, `ingest` without JWT verification, `stats` and `editor` with it. Then revoke the legacy JWT secret (P13).

@@ -1,6 +1,6 @@
 # Terms of Service and Privacy Policy
 
-*Version 2.2 · 23 November 2026 · Netherlanded prototype*
+*Version 2.3 · 24 November 2026 · Netherlanded prototype*
 
 > Template text written for a student project (Creative Business Solutions, THUAS). It is not legal advice. Have it checked before the app is offered to real users, and fill in the parts in [square brackets].
 
@@ -86,7 +86,7 @@ The current app has **no student accounts and no server push notifications**: yo
 ### 13a. Limited service statistics (on unless you object)
 **Purpose.** Netherlanded counts limited service statistics to measure the quality and effectiveness of the app, find technical errors or unclear guidance, and compile anonymous national benchmarks. For participating partner universities, the same counts are also used to produce that university's own disclosure-controlled reports, so it can improve its onboarding support (see section 11 for who is responsible for what). Non-partner institutions are excluded from institution-level Tier 1 statistics. The statistics are never used to monitor individual students, make decisions about them, or identify students who need intervention.
 
-- Your phone queues individual aggregate contributions locally and sends them in **weekly shuffled batches** (with no cookies, credentials, or referrer). Each count holds only: the app or content version, your school (rolled up to its parent institution, never campus), your intake semester (for example `2026-sep`), and either a one-time `cohort_joined` marker or a broad step category (`admin`, `housing`, `money`, `health`, `work`, `social`, or `wellbeing`) with `step_applies` / `step_completed`. There is also at most one `technical_error` count per app version.
+- Your phone queues individual aggregate contributions locally and sends them in **shuffled batches about once a day, plus one batch straight after your checklist is finished** (with no cookies, credentials, or referrer). Each count holds only: the app or content version, your school (rolled up to its parent institution, never campus), your intake semester (for example `2026-sep`), and either a one-time `cohort_joined` marker or a broad step category (`admin`, `housing`, `money`, `health`, `work`, `social`, or `wellbeing`) with `step_applies` / `step_completed`. There is also at most one `technical_error` count per app version.
 - **Never included:** name, account, device, installation or session ID, EU/EEA status, `step_id`, exact dates or times, notes, scam-check answers, or missed deadlines. Raw Tier 1 counters are stored with an arrival time rounded to the hour, folded hourly into aggregate cells, and deleted within **24 hours** (`nl.raw_t1`); Tier 1 and Tier 2 are kept in separate database stores and are never joined.
 - We tell you about this on its own screen before anything is counted. That screen has a switch that is **on by default**, because this processing rests on legitimate interests rather than consent; switching it off before you continue records your objection. Counting starts only after you continue.
 
@@ -98,7 +98,7 @@ The current app has **no student accounts and no server push notifications**: yo
 You can choose to share additional statistics for two purposes: to help your university improve its support for future students, and to help us compare how new students are doing across the Netherlands. Your university only ever sees totals for groups of at least 15 students; national comparisons combine at least 3 institutions and never show any single institution or student. This is **off unless you turn it on**. We ask you once, after you agree to these terms; you can choose yes, no, or decide later, and the app works the same whichever you choose. You can change your choice at any time in Profile, or with the switch **at the end of this Privacy Policy**.
 
 - Nothing extra is counted or kept until you say yes. If you say no, or switch it off later, the app deletes these counts from your phone.
-- Like Tier 1, counts are queued locally and sent in **weekly shuffled batches** with no cookies, credentials, or referrer. Each count holds your school, EU/EEA or not, your intake semester, the step, and what happened: joined, arrived, step applies, step opened, step completed, deadline passed (`deadline_missed`), or a scam check done (`high_risk` true or false). **No exact timestamps and no on-time/late timing flags are sent or stored.**
+- Like Tier 1, counts are queued locally and sent in **shuffled batches about once a day, plus one when your checklist is finished** with no cookies, credentials, or referrer. Each count holds your school, EU/EEA or not, your intake semester, the step, and what happened: joined, arrived, step applies, step opened, step completed, deadline passed (`deadline_missed`), or a scam check done (`high_risk` true or false). **No exact timestamps and no on-time/late timing flags are sent or stored.**
 - Tier 2 is stored separately from Tier 1, never joined to it, and passes through the exact same disclosure-control rules in section 13a before any report is published to a university dashboard. Universities cannot see, request, or receive data about individual students or your profile.
 - Your internet address reaches the hosting provider only in transient technical logs as described in section 13.
 
@@ -126,7 +126,7 @@ If you are unhappy with how we handle your data, you can complain to the Dutch D
 We collect as little as possible, reject any identity fields (`session_id`, `user_id`, `device_id`, `ip`, etc.) at ingest, and use encrypted connections and access control in the hosted deployment. On your device, anyone with access to your device and browser could see what you entered.
 
 ### 17. Cookies and tracking
-The app uses no advertising or tracking cookies and loads no third-party fonts or third-party analytics. The app uses your browser's local storage only to remember your own answers and settings, and—unless you objected (Tier 1) or declined (Tier 2)—to hold the local statistics queues prior to weekly batch upload, along with your choices.
+The app uses no advertising or tracking cookies and loads no third-party fonts or third-party analytics. The app uses your browser's local storage only to remember your own answers and settings, and—unless you objected (Tier 1) or declined (Tier 2)—to hold the local statistics queues prior to daily batch upload (plus a one-off send when your checklist is finished), along with your choices.
 
 ### 18. Changes
 If we change this policy, we update the date at the top and tell you in the app (at least 30 days in advance for important changes).

@@ -98,7 +98,9 @@ with the AP** is required (see §7).
   e-mails, student numbers, IPs, device IDs, or local queue IDs (never sent).
 - Data minimisation verified: identity fields hard-rejected at ingest (`22023`);
   T1/T2 never joined in one table; no timestamps or `on_time` flags; hour-truncated
-  arrival; weekly shuffled batches with `credentials:'omit'`, `referrerPolicy:'no-referrer'`.
+  arrival; shuffled daily batches (plus one send when the checklist is finished), with
+  `credentials:'omit'`, `referrerPolicy:'no-referrer'`, and on-device queue retention
+  capped at ~30 hours by the same schedule.
 - `[TODO: proportionality argument per purpose — why less intrusive means (e.g. no
   telemetry at all, on-device only) were rejected]`
 

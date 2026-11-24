@@ -77,7 +77,8 @@ js_all = exec_scripts[0] if exec_scripts else ''
 defs = set(re.findall(r'(?:function|const|let|var)\s+([A-Za-z_$][\w$]*)', js_all))
 for sym in ['parse', 'iso', 'deadlinesFor', 'consentNow', 'setConsent', 'statsNote',
             'whatIncludedSheet', 'statsSheet', 'basicSync', 'basicFlush', 'statsSync',
-            'statsFlush', 'maybeAskConsent', 'localQueueId', 'shuffleArr', 'nextWeeklyTs',
+            'statsFlush', 'maybeAskConsent', 'localQueueId', 'shuffleArr', 'nextBatchTs',
+            'promoteDailyBatch', 'journeyCompleteNow',
             'parentInstitutionId', 'fetchWithTimeout', 'withLock', 'flushQueue',
             'maybePromptCalendar', 'googleCalUrl', 'downloadIcs', 'setRemindersEnabled',
             'checkLocalReminders', 'syncAppInert']:
@@ -97,7 +98,9 @@ check('Tier 1 notice: legitimate-interest switch on by default, one Continue but
 check('Tier 2 consent names both purposes and offers an explicit choice',
       'National comparisons combine at least 3 institutions' in js_all and 'id="cgYes"' in js_all and 'id="cgNo"' in js_all)
 check('addDays uses calendar Date(y, m, d+n) (DST-safe)', 'new Date(d.getFullYear(),d.getMonth(),d.getDate()+n)' in js_all)
-check('whatIncludedSheet surfaces weekly batch waiting count', 'Waiting for weekly batch' in js_all)
+check('telemetry uses daily cadence (24h + ≤6h jitter) and a checklist-completion milestone send',
+      'BATCH_DAY_MS' in js_all and 'BATCH_JITTER_MS' in js_all and 'journeyCompleteNow()' in js_all and 'WEEKLY_MS' not in js_all)
+check('whatIncludedSheet surfaces next batch waiting count', 'Waiting for next batch' in js_all)
 check('See my data includes _telemetry_queues', '_telemetry_queues' in js_all)
 check('app registers root ./sw.js', "register('./sw.js')" in js_all)
 check('app calendar prompt, stable ICS UID, real local reminders & JSON backup present',
