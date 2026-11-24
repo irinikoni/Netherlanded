@@ -54,7 +54,7 @@ jobs:
         # signing in, unlike job logs). The CLI never prints the access token.
         run: |
           set -o pipefail
-          if ! supabase functions deploy --remote="$PROJECT_REF" --use-api --yes --yes 2>&1 | tee deploy.log; then
+          if ! supabase functions deploy --remote="$PROJECT_REF" --use-api --yes 2>&1 | tee deploy.log; then
             tail -n 15 deploy.log | sed 's/%/%25/g' | tr '\n' '|' | sed 's/^/::error title=supabase functions deploy::/'; echo
             exit 1
           fi

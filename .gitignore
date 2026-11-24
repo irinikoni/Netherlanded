@@ -19,3 +19,6 @@ Thumbs.db
 business/
 presentations/
 tools/decks/
+
+# Supabase CLI local link state
+supabase/.temp/
