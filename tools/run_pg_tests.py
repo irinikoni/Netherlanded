@@ -426,6 +426,10 @@ def main():
                 conn.execute(read_sql('010_function_search_path.sql'))
                 conn.execute(read_sql('011_security_hardening.sql'))
                 check('execute 011_security_hardening.sql', True)
+                conn.execute(read_sql('012_health_ping.sql'))
+                check('execute 012_health_ping.sql (no-op without pg_cron/pg_net/vault)', True)
+                conn.execute('select nl.health_ping()')
+                check('012: nl.health_ping() is a silent no-op when no vault secret exists', True)
                 unpinned = conn.execute("""
                     select n.nspname || '.' || p.proname from pg_proc p
                       join pg_namespace n on n.oid = p.pronamespace

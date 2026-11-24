@@ -26,6 +26,7 @@ MIGRATIONS = [  # (version, source) in apply order; versions must never change o
     ('20261124000009', '009_content_editor.sql'),
     ('20261124000010', '010_function_search_path.sql'),
     ('20261124000011', '011_security_hardening.sql'),
+    ('20261124000012', '012_health_ping.sql'),
 ]
 FUNCTIONS = ['ingest', 'stats', 'editor']
 TX = re.compile(r'^\s*(begin|commit)\s*;\s*$', re.I | re.M)
