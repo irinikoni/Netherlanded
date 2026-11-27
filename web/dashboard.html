@@ -428,14 +428,14 @@
   </header>
 
   <div class="note gut">
-    <div class="in" id="nl-mode-banner"><strong>Prototype with fictional data.</strong> In the live service, each university sees only its own institution-scoped snapshot (floor &ge; 15, rounded to 5, tail-capped &le;10% / &ge;90%).</div>
+    <div class="in" id="nl-mode-banner"><strong>Demo data</strong> · floor &ge;15, rounded to 5</div>
   </div>
 
   <div class="auth-strip gut">
     <div class="in">
       <form class="nl-auth" id="nl-auth-form" autocomplete="off">
         <label for="nl-staff-token">Live API JWT</label>
-        <input id="nl-staff-token" type="password" placeholder="Paste institution staff Bearer token for /api/stats" aria-label="Staff JWT token">
+        <input id="nl-staff-token" type="password" placeholder="Staff Bearer token" aria-label="Staff JWT token">
         <button type="submit" class="btn fill">Load live report</button>
         <button type="button" class="btn" id="nl-staff-clear">Clear</button>
         <button type="button" class="btn" id="nl-demo-btn">Demo preview</button>
@@ -446,7 +446,7 @@
   <main class="gut">
     <div class="in">
       <div class="filters">
-        <label for="nl-intake-filter">Intake (arrival semester / month)
+        <label for="nl-intake-filter">Intake
           <select id="nl-intake-filter"></select>
         </label>
         <label id="nl-region-filter-wrap">Students

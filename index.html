@@ -35,25 +35,10 @@
     header {
       margin-bottom: 24px;
     }
-    .badge {
-      display: inline-block;
-      padding: 4px 10px;
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 600;
-      background: #e3efe8;
-      color: var(--accent);
-      margin-bottom: 10px;
-    }
     h1 {
-      margin: 0 0 8px;
+      margin: 0;
       font-size: clamp(1.6rem, 3vw, 2.1rem);
       line-height: 1.2;
-    }
-    p.lead {
-      margin: 0;
-      color: var(--muted);
-      font-size: 1rem;
     }
     .grid {
       display: grid;
@@ -83,20 +68,7 @@
       font-weight: 700;
       font-size: 1.08rem;
       color: var(--accent);
-      margin-bottom: 6px;
-    }
-    .card p {
-      margin: 0;
-      color: var(--muted);
-      font-size: 0.94rem;
-    }
-    .note {
-      margin-top: 22px;
-      padding: 14px 16px;
-      border-radius: 12px;
-      background: #eef3f0;
-      color: var(--muted);
-      font-size: 0.88rem;
+      margin-bottom: 0;
     }
     footer {
       margin-top: 24px;
@@ -108,48 +80,31 @@
 <body>
   <main>
     <header>
-      <span class="badge">Prototype v2.1 · Offline-First &amp; Privacy-by-Design</span>
       <h1>Netherlanded</h1>
-      <p class="lead">
-        Personalised arrival checklist, deadline reminders, and scam protection for international students in the Netherlands — paired with a 15-student-floor university insights dashboard and staff content editor.
-      </p>
     </header>
 
     <section class="grid" aria-label="Netherlanded applications">
       <a class="card" href="./netherlanded-app.html">
         <div class="card-title">
-          <span>1. Student Arrival App (PWA)</span>
+          <span>Student Arrival App</span>
           <span aria-hidden="true">Open →</span>
         </div>
-        <p>
-          Full student onboarding flow: EU/non-EU &amp; commuter-municipality setup across 18 study cities (34 municipalities), dependency chain, `.ics` / Google Calendar deadlines, Room Scam Check, and separate Tier 1 / Tier 2 privacy controls.
-        </p>
       </a>
 
       <a class="card" href="./web/dashboard.html">
         <div class="card-title">
-          <span>2. University Insights Dashboard (Demo Mode)</span>
+          <span>University Insights Dashboard</span>
           <span aria-hidden="true">Open →</span>
         </div>
-        <p>
-          Simulated cohort bottleneck view illustrating the 15-student floor, rounding to 5, tail capping (&lt;= 10.0% / &gt;= 90.0%), and suppressed small-campus handling (THUAS, Leiden, Zoetermeer).
-        </p>
       </a>
 
       <a class="card" href="./web/editor.html">
         <div class="card-title">
-          <span>3. Staff Content Editor Panel (Demo Mode)</span>
+          <span>Staff Content Editor</span>
           <span aria-hidden="true">Open →</span>
         </div>
-        <p>
-          6-tab editorial workflow showing shared-city locks (`can_edit_city`), institution-specific arrival notes, local GP patient-stop toggles, and `last_verified` fact history.
-        </p>
       </a>
     </section>
-
-    <div class="note">
-      <strong>Static Preview Mode:</strong> This GitHub Pages site serves the offline-capable client prototypes and Demo Mode previews with no server tracking or cookies. Live university telemetry requires connecting the PostgreSQL 15/16 + Edge backend (`db/` &amp; `edge/`).
-    </div>
 
     <footer>
       Copyright &copy; 2026 Eirini Konidari. All rights reserved.

@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="web/banner.svg" alt="Netherlanded — Arrival guidance for international students in the Netherlands" width="100%">
+</p>
+
 # Netherlanded – Consolidated Legal, App & Analytics Package (v2.1)
 
 Netherlanded is a checklist and arrival-guidance web application for first-year international students arriving in the Netherlands (International Business project, THUAS). This repository consolidates the working student app, the harmonised legal documentation (v2.1), the PostgreSQL statistical disclosure-control & content-editor backends, the University Insights Dashboard, the Content Editor Panel, the business case deliverables, and the automated verification suite.

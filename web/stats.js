@@ -85,25 +85,25 @@
       'thuas-zoetermeer': 'THUAS, Zoetermeer campus'
     },
     steps: {
-      residence_permit: { title: 'Get your residence permit started', phase: 'pre_arrival', optional: false },
-      find_housing: { title: 'Find a room with a registrable address', phase: 'pre_arrival', optional: false },
-      check_insurance: { title: 'Sort out health insurance for studying', phase: 'pre_arrival', optional: false },
+      residence_permit: { title: 'Start your residence permit', phase: 'pre_arrival', optional: false },
+      find_housing: { title: 'Find housing you can register at', phase: 'pre_arrival', optional: false },
+      check_insurance: { title: 'Arrange student health insurance', phase: 'pre_arrival', optional: false },
       open_bank: { title: 'Open a Dutch bank account', phase: 'pre_arrival', optional: false },
-      book_registration: { title: 'Book your registration appointment', phase: 'pre_arrival', optional: false },
-      plan_finances: { title: 'Check what money support you can get', phase: 'pre_arrival', optional: false },
-      register_municipality: { title: 'Register with the municipality and get your BSN', phase: 'arrival', optional: false },
-      collect_permit: { title: 'Collect your residence permit', phase: 'arrival', optional: false },
-      add_bsn_bank: { title: 'Add your BSN to your bank account', phase: 'arrival', optional: false },
+      book_registration: { title: 'Book city hall registration', phase: 'pre_arrival', optional: false },
+      plan_finances: { title: 'Check student finance & grants', phase: 'pre_arrival', optional: false },
+      register_municipality: { title: 'Register & get your BSN', phase: 'arrival', optional: false },
+      collect_permit: { title: 'Pick up your residence permit', phase: 'arrival', optional: false },
+      add_bsn_bank: { title: 'Submit your BSN to your bank', phase: 'arrival', optional: false },
       apply_digid: { title: 'Apply for DigiD', phase: 'arrival', optional: false },
-      register_gp: { title: 'Register with a GP (huisarts) before you need one', phase: 'arrival', optional: false },
-      tb_test: { title: 'Do the TB test if you are invited', phase: 'arrival', optional: true },
+      register_gp: { title: 'Register with a local GP (huisarts)', phase: 'arrival', optional: false },
+      tb_test: { title: 'Take a TB test (if required)', phase: 'arrival', optional: true },
       find_job: { title: 'Find a part-time job', phase: 'arrival', optional: false },
-      dutch_insurance: { title: 'Take Dutch health insurance from your first working day', phase: 'arrival', optional: false },
-      student_finance: { title: 'Apply for student finance (DUO)', phase: 'arrival', optional: false },
-      intro_week: { title: 'Join the introduction week', phase: 'first_months', optional: true },
-      join_community: { title: 'Find a club, association or Dutch course', phase: 'first_months', optional: true },
-      cak_letter: { title: 'Got a letter from the CAK? Act within 3 months', phase: 'first_months', optional: true },
-      wellbeing_checkin: { title: 'Do your monthly check-in', phase: 'first_months', optional: true }
+      dutch_insurance: { title: 'Get Dutch basic health insurance', phase: 'arrival', optional: false },
+      student_finance: { title: 'Apply for DUO student finance', phase: 'arrival', optional: false },
+      intro_week: { title: 'Join introduction week', phase: 'first_months', optional: true },
+      join_community: { title: 'Join a club or Dutch course', phase: 'first_months', optional: true },
+      cak_letter: { title: 'Respond to a CAK letter', phase: 'first_months', optional: true },
+      wellbeing_checkin: { title: 'Monthly check-in', phase: 'first_months', optional: true }
     },
     summary: [
       { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', intake_label: 'September 2026 (2026-sep)', students: 140, arrived_pct: null, arrived_display: '>= 90.0%', avg_required_step_completion_pct: 71, gp_registered_pct: 41, missed_registration_deadline_pct: 25 },
@@ -114,90 +114,90 @@
     ],
     step_completion: [
       /* THUAS EU/EEA 2026-sep (rounded n=140) */
-      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', phase: 'pre_arrival', sort_order: 20, step_id: 'find_housing', title: 'Find a room with a registrable address', students_with_step: 140, completed_pct: null, completed_display: '>= 90.0%', on_time_pct: null, on_time_display: '>= 90.0%', opened_pct: null },
-      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', phase: 'pre_arrival', sort_order: 30, step_id: 'check_insurance', title: 'Sort out health insurance for studying', students_with_step: 140, completed_pct: 83, on_time_pct: null, on_time_display: '>= 90.0%', opened_pct: null, opened_display: '>= 90.0%' },
+      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', phase: 'pre_arrival', sort_order: 20, step_id: 'find_housing', title: 'Find housing you can register at', students_with_step: 140, completed_pct: null, completed_display: '>= 90.0%', on_time_pct: null, on_time_display: '>= 90.0%', opened_pct: null },
+      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', phase: 'pre_arrival', sort_order: 30, step_id: 'check_insurance', title: 'Arrange student health insurance', students_with_step: 140, completed_pct: 83, on_time_pct: null, on_time_display: '>= 90.0%', opened_pct: null, opened_display: '>= 90.0%' },
       { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', phase: 'pre_arrival', sort_order: 40, step_id: 'open_bank', title: 'Open a Dutch bank account', students_with_step: 140, completed_pct: null, completed_display: '>= 90.0%', on_time_pct: null, on_time_display: '>= 90.0%', opened_pct: null, opened_display: '>= 90.0%' },
-      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', phase: 'pre_arrival', sort_order: 50, step_id: 'book_registration', title: 'Book your registration appointment', students_with_step: 140, completed_pct: 85, on_time_pct: 68, opened_pct: null, opened_display: '>= 90.0%' },
-      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', phase: 'pre_arrival', sort_order: 60, step_id: 'plan_finances', title: 'Check what money support you can get', students_with_step: 140, completed_pct: 60, on_time_pct: null, on_time_display: '>= 90.0%', opened_pct: null, opened_display: '>= 90.0%' },
-      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', phase: 'arrival', sort_order: 70, step_id: 'register_municipality', title: 'Register with the municipality and get your BSN', students_with_step: 140, completed_pct: null, completed_display: '>= 90.0%', on_time_pct: 78, opened_pct: null },
-      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', phase: 'arrival', sort_order: 80, step_id: 'add_bsn_bank', title: 'Add your BSN to your bank account', students_with_step: 140, completed_pct: 63, on_time_pct: 72, opened_pct: 86 },
+      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', phase: 'pre_arrival', sort_order: 50, step_id: 'book_registration', title: 'Book city hall registration', students_with_step: 140, completed_pct: 85, on_time_pct: 68, opened_pct: null, opened_display: '>= 90.0%' },
+      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', phase: 'pre_arrival', sort_order: 60, step_id: 'plan_finances', title: 'Check student finance & grants', students_with_step: 140, completed_pct: 60, on_time_pct: null, on_time_display: '>= 90.0%', opened_pct: null, opened_display: '>= 90.0%' },
+      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', phase: 'arrival', sort_order: 70, step_id: 'register_municipality', title: 'Register & get your BSN', students_with_step: 140, completed_pct: null, completed_display: '>= 90.0%', on_time_pct: 78, opened_pct: null },
+      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', phase: 'arrival', sort_order: 80, step_id: 'add_bsn_bank', title: 'Submit your BSN to your bank', students_with_step: 140, completed_pct: 63, on_time_pct: 72, opened_pct: 86 },
       { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', phase: 'arrival', sort_order: 90, step_id: 'apply_digid', title: 'Apply for DigiD', students_with_step: 140, completed_pct: 60, on_time_pct: 86, opened_pct: null, opened_display: '>= 90.0%' },
-      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', phase: 'arrival', sort_order: 100, step_id: 'register_gp', title: 'Register with a GP (huisarts) before you need one', students_with_step: 140, completed_pct: 41, on_time_pct: 29, opened_pct: 85 },
+      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', phase: 'arrival', sort_order: 100, step_id: 'register_gp', title: 'Register with a local GP (huisarts)', students_with_step: 140, completed_pct: 41, on_time_pct: 29, opened_pct: 85 },
       { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', phase: 'arrival', sort_order: 110, step_id: 'find_job', title: 'Find a part-time job', students_with_step: 65, completed_pct: 58, on_time_pct: null, opened_pct: null },
-      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', phase: 'arrival', sort_order: 120, step_id: 'dutch_insurance', title: 'Take Dutch health insurance from your first working day', students_with_step: 65, completed_pct: 80, on_time_pct: 69, opened_pct: null },
-      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', phase: 'arrival', sort_order: 130, step_id: 'student_finance', title: 'Apply for student finance (DUO)', students_with_step: 65, completed_pct: 37, on_time_pct: null, opened_pct: 85 },
-      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', phase: 'first_months', sort_order: 150, step_id: 'intro_week', title: 'Join the introduction week', students_with_step: 140, completed_pct: 80, on_time_pct: null, on_time_display: '>= 90.0%', opened_pct: null, opened_display: '>= 90.0%' },
-      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', phase: 'first_months', sort_order: 160, step_id: 'join_community', title: 'Find a club, association or Dutch course', students_with_step: 140, completed_pct: 42, on_time_pct: null, on_time_display: '>= 90.0%', opened_pct: 83 },
-      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', phase: 'first_months', sort_order: 165, step_id: 'cak_letter', title: 'Got a letter from the CAK? Act within 3 months', students_with_step: 140, completed_pct: 38, on_time_pct: 87, opened_pct: 75 },
-      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', phase: 'first_months', sort_order: 170, step_id: 'wellbeing_checkin', title: 'Do your monthly check-in', students_with_step: 140, completed_pct: 30, on_time_pct: 88, opened_pct: 75 },
+      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', phase: 'arrival', sort_order: 120, step_id: 'dutch_insurance', title: 'Get Dutch basic health insurance', students_with_step: 65, completed_pct: 80, on_time_pct: 69, opened_pct: null },
+      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', phase: 'arrival', sort_order: 130, step_id: 'student_finance', title: 'Apply for DUO student finance', students_with_step: 65, completed_pct: 37, on_time_pct: null, opened_pct: 85 },
+      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', phase: 'first_months', sort_order: 150, step_id: 'intro_week', title: 'Join introduction week', students_with_step: 140, completed_pct: 80, on_time_pct: null, on_time_display: '>= 90.0%', opened_pct: null, opened_display: '>= 90.0%' },
+      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', phase: 'first_months', sort_order: 160, step_id: 'join_community', title: 'Join a club or Dutch course', students_with_step: 140, completed_pct: 42, on_time_pct: null, on_time_display: '>= 90.0%', opened_pct: 83 },
+      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', phase: 'first_months', sort_order: 165, step_id: 'cak_letter', title: 'Respond to a CAK letter', students_with_step: 140, completed_pct: 38, on_time_pct: 87, opened_pct: 75 },
+      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', phase: 'first_months', sort_order: 170, step_id: 'wellbeing_checkin', title: 'Monthly check-in', students_with_step: 140, completed_pct: 30, on_time_pct: 88, opened_pct: 75 },
 
       /* THUAS Non-EU 2026-sep (rounded n=60) */
-      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', phase: 'pre_arrival', sort_order: 10, step_id: 'residence_permit', title: 'Get your residence permit started', students_with_step: 60, completed_pct: null, completed_display: '>= 90.0%', on_time_pct: 87, opened_pct: null, opened_display: '>= 90.0%' },
-      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', phase: 'pre_arrival', sort_order: 20, step_id: 'find_housing', title: 'Find a room with a registrable address', students_with_step: 60, completed_pct: null, completed_display: '>= 90.0%', on_time_pct: null, opened_pct: null },
-      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', phase: 'pre_arrival', sort_order: 30, step_id: 'check_insurance', title: 'Sort out health insurance for studying', students_with_step: 60, completed_pct: 89, on_time_pct: null, opened_pct: null },
+      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', phase: 'pre_arrival', sort_order: 10, step_id: 'residence_permit', title: 'Start your residence permit', students_with_step: 60, completed_pct: null, completed_display: '>= 90.0%', on_time_pct: 87, opened_pct: null, opened_display: '>= 90.0%' },
+      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', phase: 'pre_arrival', sort_order: 20, step_id: 'find_housing', title: 'Find housing you can register at', students_with_step: 60, completed_pct: null, completed_display: '>= 90.0%', on_time_pct: null, opened_pct: null },
+      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', phase: 'pre_arrival', sort_order: 30, step_id: 'check_insurance', title: 'Arrange student health insurance', students_with_step: 60, completed_pct: 89, on_time_pct: null, opened_pct: null },
       { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', phase: 'pre_arrival', sort_order: 40, step_id: 'open_bank', title: 'Open a Dutch bank account', students_with_step: 60, completed_pct: 89, on_time_pct: null, opened_pct: null },
-      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', phase: 'pre_arrival', sort_order: 50, step_id: 'book_registration', title: 'Book your registration appointment', students_with_step: 60, completed_pct: 89, on_time_pct: 57, opened_pct: null },
-      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', phase: 'pre_arrival', sort_order: 60, step_id: 'plan_finances', title: 'Check what money support you can get', students_with_step: 60, completed_pct: 62, on_time_pct: null, opened_pct: 84 },
-      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', phase: 'arrival', sort_order: 70, step_id: 'register_municipality', title: 'Register with the municipality and get your BSN', students_with_step: 60, completed_pct: 87, on_time_pct: 72, opened_pct: null },
-      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', phase: 'arrival', sort_order: 75, step_id: 'collect_permit', title: 'Collect your residence permit', students_with_step: 60, completed_pct: 87, on_time_pct: 89, opened_pct: null },
-      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', phase: 'arrival', sort_order: 80, step_id: 'add_bsn_bank', title: 'Add your BSN to your bank account', students_with_step: 60, completed_pct: 70, on_time_pct: 72, opened_pct: null, opened_display: '>= 90.0%' },
+      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', phase: 'pre_arrival', sort_order: 50, step_id: 'book_registration', title: 'Book city hall registration', students_with_step: 60, completed_pct: 89, on_time_pct: 57, opened_pct: null },
+      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', phase: 'pre_arrival', sort_order: 60, step_id: 'plan_finances', title: 'Check student finance & grants', students_with_step: 60, completed_pct: 62, on_time_pct: null, opened_pct: 84 },
+      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', phase: 'arrival', sort_order: 70, step_id: 'register_municipality', title: 'Register & get your BSN', students_with_step: 60, completed_pct: 87, on_time_pct: 72, opened_pct: null },
+      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', phase: 'arrival', sort_order: 75, step_id: 'collect_permit', title: 'Pick up your residence permit', students_with_step: 60, completed_pct: 87, on_time_pct: 89, opened_pct: null },
+      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', phase: 'arrival', sort_order: 80, step_id: 'add_bsn_bank', title: 'Submit your BSN to your bank', students_with_step: 60, completed_pct: 70, on_time_pct: 72, opened_pct: null, opened_display: '>= 90.0%' },
       { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', phase: 'arrival', sort_order: 90, step_id: 'apply_digid', title: 'Apply for DigiD', students_with_step: 60, completed_pct: 67, on_time_pct: null, opened_pct: null, opened_display: '>= 90.0%' },
-      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', phase: 'arrival', sort_order: 100, step_id: 'register_gp', title: 'Register with a GP (huisarts) before you need one', students_with_step: 60, completed_pct: 36, on_time_pct: 55, opened_pct: 84 },
-      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', phase: 'arrival', sort_order: 105, step_id: 'tb_test', title: 'Do the TB test if you are invited', students_with_step: 60, completed_pct: 48, on_time_pct: null, on_time_display: '>= 90.0%', opened_pct: 79 },
+      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', phase: 'arrival', sort_order: 100, step_id: 'register_gp', title: 'Register with a local GP (huisarts)', students_with_step: 60, completed_pct: 36, on_time_pct: 55, opened_pct: 84 },
+      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', phase: 'arrival', sort_order: 105, step_id: 'tb_test', title: 'Take a TB test (if required)', students_with_step: 60, completed_pct: 48, on_time_pct: null, on_time_display: '>= 90.0%', opened_pct: 79 },
       { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', phase: 'arrival', sort_order: 110, step_id: 'find_job', title: 'Find a part-time job', students_with_step: 35, completed_pct: 62, on_time_pct: null, on_time_display: '>= 90.0%', opened_pct: null },
-      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', phase: 'arrival', sort_order: 120, step_id: 'dutch_insurance', title: 'Take Dutch health insurance from your first working day', students_with_step: 35, completed_pct: 59, on_time_pct: 73, opened_pct: null },
-      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', phase: 'first_months', sort_order: 150, step_id: 'intro_week', title: 'Join the introduction week', students_with_step: 60, completed_pct: 80, on_time_pct: 86, opened_pct: null },
-      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', phase: 'first_months', sort_order: 160, step_id: 'join_community', title: 'Find a club, association or Dutch course', students_with_step: 60, completed_pct: 43, on_time_pct: null, opened_pct: 82 },
-      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', phase: 'first_months', sort_order: 165, step_id: 'cak_letter', title: 'Got a letter from the CAK? Act within 3 months', students_with_step: 60, completed_pct: 46, on_time_pct: null, opened_pct: 84 },
-      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', phase: 'first_months', sort_order: 170, step_id: 'wellbeing_checkin', title: 'Do your monthly check-in', students_with_step: 60, completed_pct: 23, on_time_pct: null, opened_pct: 82 },
+      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', phase: 'arrival', sort_order: 120, step_id: 'dutch_insurance', title: 'Get Dutch basic health insurance', students_with_step: 35, completed_pct: 59, on_time_pct: 73, opened_pct: null },
+      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', phase: 'first_months', sort_order: 150, step_id: 'intro_week', title: 'Join introduction week', students_with_step: 60, completed_pct: 80, on_time_pct: 86, opened_pct: null },
+      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', phase: 'first_months', sort_order: 160, step_id: 'join_community', title: 'Join a club or Dutch course', students_with_step: 60, completed_pct: 43, on_time_pct: null, opened_pct: 82 },
+      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', phase: 'first_months', sort_order: 165, step_id: 'cak_letter', title: 'Respond to a CAK letter', students_with_step: 60, completed_pct: 46, on_time_pct: null, opened_pct: 84 },
+      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', phase: 'first_months', sort_order: 170, step_id: 'wellbeing_checkin', title: 'Monthly check-in', students_with_step: 60, completed_pct: 23, on_time_pct: null, opened_pct: 82 },
 
       /* Leiden EU/EEA 2026-sep (rounded n=45 -> multiples of 5% bands) */
-      { institution_id: 'leiden', region: 'eu_eea', intake_month: '2026-sep', phase: 'pre_arrival', sort_order: 20, step_id: 'find_housing', title: 'Find a room with a registrable address', students_with_step: 45, completed_pct: null, on_time_pct: 89, opened_pct: null },
-      { institution_id: 'leiden', region: 'eu_eea', intake_month: '2026-sep', phase: 'pre_arrival', sort_order: 30, step_id: 'check_insurance', title: 'Sort out health insurance for studying', students_with_step: 45, completed_pct: 85, on_time_pct: 85, opened_pct: null },
+      { institution_id: 'leiden', region: 'eu_eea', intake_month: '2026-sep', phase: 'pre_arrival', sort_order: 20, step_id: 'find_housing', title: 'Find housing you can register at', students_with_step: 45, completed_pct: null, on_time_pct: 89, opened_pct: null },
+      { institution_id: 'leiden', region: 'eu_eea', intake_month: '2026-sep', phase: 'pre_arrival', sort_order: 30, step_id: 'check_insurance', title: 'Arrange student health insurance', students_with_step: 45, completed_pct: 85, on_time_pct: 85, opened_pct: null },
       { institution_id: 'leiden', region: 'eu_eea', intake_month: '2026-sep', phase: 'pre_arrival', sort_order: 40, step_id: 'open_bank', title: 'Open a Dutch bank account', students_with_step: 45, completed_pct: null, on_time_pct: 85, opened_pct: null, opened_display: '>= 90.0%' },
-      { institution_id: 'leiden', region: 'eu_eea', intake_month: '2026-sep', phase: 'pre_arrival', sort_order: 50, step_id: 'book_registration', title: 'Book your registration appointment', students_with_step: 45, completed_pct: null, on_time_pct: 60, opened_pct: null, opened_display: '>= 90.0%' },
-      { institution_id: 'leiden', region: 'eu_eea', intake_month: '2026-sep', phase: 'pre_arrival', sort_order: 60, step_id: 'plan_finances', title: 'Check what money support you can get', students_with_step: 45, completed_pct: 65, on_time_pct: null, opened_pct: null },
-      { institution_id: 'leiden', region: 'eu_eea', intake_month: '2026-sep', phase: 'arrival', sort_order: 70, step_id: 'register_municipality', title: 'Register with the municipality and get your BSN', students_with_step: 45, completed_pct: null, on_time_pct: 70, opened_pct: null, opened_display: '>= 90.0%' },
-      { institution_id: 'leiden', region: 'eu_eea', intake_month: '2026-sep', phase: 'arrival', sort_order: 80, step_id: 'add_bsn_bank', title: 'Add your BSN to your bank account', students_with_step: 45, completed_pct: 65, on_time_pct: null, opened_pct: null, opened_display: '>= 90.0%' },
+      { institution_id: 'leiden', region: 'eu_eea', intake_month: '2026-sep', phase: 'pre_arrival', sort_order: 50, step_id: 'book_registration', title: 'Book city hall registration', students_with_step: 45, completed_pct: null, on_time_pct: 60, opened_pct: null, opened_display: '>= 90.0%' },
+      { institution_id: 'leiden', region: 'eu_eea', intake_month: '2026-sep', phase: 'pre_arrival', sort_order: 60, step_id: 'plan_finances', title: 'Check student finance & grants', students_with_step: 45, completed_pct: 65, on_time_pct: null, opened_pct: null },
+      { institution_id: 'leiden', region: 'eu_eea', intake_month: '2026-sep', phase: 'arrival', sort_order: 70, step_id: 'register_municipality', title: 'Register & get your BSN', students_with_step: 45, completed_pct: null, on_time_pct: 70, opened_pct: null, opened_display: '>= 90.0%' },
+      { institution_id: 'leiden', region: 'eu_eea', intake_month: '2026-sep', phase: 'arrival', sort_order: 80, step_id: 'add_bsn_bank', title: 'Submit your BSN to your bank', students_with_step: 45, completed_pct: 65, on_time_pct: null, opened_pct: null, opened_display: '>= 90.0%' },
       { institution_id: 'leiden', region: 'eu_eea', intake_month: '2026-sep', phase: 'arrival', sort_order: 90, step_id: 'apply_digid', title: 'Apply for DigiD', students_with_step: 45, completed_pct: 55, on_time_pct: null, opened_pct: 85 },
-      { institution_id: 'leiden', region: 'eu_eea', intake_month: '2026-sep', phase: 'arrival', sort_order: 100, step_id: 'register_gp', title: 'Register with a GP (huisarts) before you need one', students_with_step: 45, completed_pct: 40, on_time_pct: 25, opened_pct: 85 },
+      { institution_id: 'leiden', region: 'eu_eea', intake_month: '2026-sep', phase: 'arrival', sort_order: 100, step_id: 'register_gp', title: 'Register with a local GP (huisarts)', students_with_step: 45, completed_pct: 40, on_time_pct: 25, opened_pct: 85 },
       { institution_id: 'leiden', region: 'eu_eea', intake_month: '2026-sep', phase: 'arrival', sort_order: 110, step_id: 'find_job', title: 'Find a part-time job', students_with_step: 25, completed_pct: 65, on_time_pct: null, opened_pct: null },
-      { institution_id: 'leiden', region: 'eu_eea', intake_month: '2026-sep', phase: 'arrival', sort_order: 120, step_id: 'dutch_insurance', title: 'Take Dutch health insurance from your first working day', students_with_step: 25, completed_pct: null, on_time_pct: 75, opened_pct: null, opened_display: '>= 90.0%' },
-      { institution_id: 'leiden', region: 'eu_eea', intake_month: '2026-sep', phase: 'arrival', sort_order: 130, step_id: 'student_finance', title: 'Apply for student finance (DUO)', students_with_step: 25, completed_pct: 30, on_time_pct: null, opened_pct: null },
+      { institution_id: 'leiden', region: 'eu_eea', intake_month: '2026-sep', phase: 'arrival', sort_order: 120, step_id: 'dutch_insurance', title: 'Get Dutch basic health insurance', students_with_step: 25, completed_pct: null, on_time_pct: 75, opened_pct: null, opened_display: '>= 90.0%' },
+      { institution_id: 'leiden', region: 'eu_eea', intake_month: '2026-sep', phase: 'arrival', sort_order: 130, step_id: 'student_finance', title: 'Apply for DUO student finance', students_with_step: 25, completed_pct: 30, on_time_pct: null, opened_pct: null },
 
       /* Leiden Non-EU 2026-sep (rounded n=20 -> multiples of 5% bands) */
-      { institution_id: 'leiden', region: 'non_eu', intake_month: '2026-sep', phase: 'pre_arrival', sort_order: 10, step_id: 'residence_permit', title: 'Get your residence permit started', students_with_step: 20, completed_pct: null, on_time_pct: 70, opened_pct: null, opened_display: '>= 90.0%' },
-      { institution_id: 'leiden', region: 'non_eu', intake_month: '2026-sep', phase: 'pre_arrival', sort_order: 20, step_id: 'find_housing', title: 'Find a room with a registrable address', students_with_step: 20, completed_pct: null, on_time_pct: null, opened_pct: null, opened_display: '>= 90.0%' },
-      { institution_id: 'leiden', region: 'non_eu', intake_month: '2026-sep', phase: 'pre_arrival', sort_order: 30, step_id: 'check_insurance', title: 'Sort out health insurance for studying', students_with_step: 20, completed_pct: 65, on_time_pct: null, on_time_display: '>= 90.0%', opened_pct: null },
+      { institution_id: 'leiden', region: 'non_eu', intake_month: '2026-sep', phase: 'pre_arrival', sort_order: 10, step_id: 'residence_permit', title: 'Start your residence permit', students_with_step: 20, completed_pct: null, on_time_pct: 70, opened_pct: null, opened_display: '>= 90.0%' },
+      { institution_id: 'leiden', region: 'non_eu', intake_month: '2026-sep', phase: 'pre_arrival', sort_order: 20, step_id: 'find_housing', title: 'Find housing you can register at', students_with_step: 20, completed_pct: null, on_time_pct: null, opened_pct: null, opened_display: '>= 90.0%' },
+      { institution_id: 'leiden', region: 'non_eu', intake_month: '2026-sep', phase: 'pre_arrival', sort_order: 30, step_id: 'check_insurance', title: 'Arrange student health insurance', students_with_step: 20, completed_pct: 65, on_time_pct: null, on_time_display: '>= 90.0%', opened_pct: null },
       { institution_id: 'leiden', region: 'non_eu', intake_month: '2026-sep', phase: 'pre_arrival', sort_order: 40, step_id: 'open_bank', title: 'Open a Dutch bank account', students_with_step: 20, completed_pct: 75, on_time_pct: null, opened_pct: null, opened_display: '>= 90.0%' },
-      { institution_id: 'leiden', region: 'non_eu', intake_month: '2026-sep', phase: 'arrival', sort_order: 80, step_id: 'add_bsn_bank', title: 'Add your BSN to your bank account', students_with_step: 20, completed_pct: 60, on_time_pct: 60, opened_pct: null },
+      { institution_id: 'leiden', region: 'non_eu', intake_month: '2026-sep', phase: 'arrival', sort_order: 80, step_id: 'add_bsn_bank', title: 'Submit your BSN to your bank', students_with_step: 20, completed_pct: 60, on_time_pct: 60, opened_pct: null },
       { institution_id: 'leiden', region: 'non_eu', intake_month: '2026-sep', phase: 'arrival', sort_order: 90, step_id: 'apply_digid', title: 'Apply for DigiD', students_with_step: 20, completed_pct: 55, on_time_pct: null, on_time_display: '>= 90.0%', opened_pct: null },
-      { institution_id: 'leiden', region: 'non_eu', intake_month: '2026-sep', phase: 'arrival', sort_order: 100, step_id: 'register_gp', title: 'Register with a GP (huisarts) before you need one', students_with_step: 20, completed_pct: 50, on_time_pct: null, opened_pct: 75 },
+      { institution_id: 'leiden', region: 'non_eu', intake_month: '2026-sep', phase: 'arrival', sort_order: 100, step_id: 'register_gp', title: 'Register with a local GP (huisarts)', students_with_step: 20, completed_pct: 50, on_time_pct: null, opened_pct: 75 },
       { institution_id: 'leiden', region: 'non_eu', intake_month: '2026-sep', phase: 'arrival', sort_order: 110, step_id: 'find_job', title: 'Find a part-time job', students_with_step: 15, completed_pct: 45, on_time_pct: null, opened_pct: 65 }
     ],
     deadline_missed: [
-      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', step_id: 'register_gp', label: 'Register with a GP in your first two weeks', severity: 'advice', students_with_deadline: 140, missed_pct: 84 },
-      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', step_id: 'cak_letter', label: 'Respond to the CAK letter or get fined', severity: 'financial', students_with_deadline: 140, missed_pct: 57 },
-      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', step_id: 'add_bsn_bank', label: 'Add your BSN to your bank (check: 90 to 120 days)', severity: 'financial', students_with_deadline: 140, missed_pct: 48 },
-      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', step_id: 'dutch_insurance', label: 'Dutch health insurance must start today', severity: 'legal', students_with_deadline: 65, missed_pct: 43 },
-      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', step_id: 'book_registration', label: 'Book a registration appointment before you travel', severity: 'advice', students_with_deadline: 140, missed_pct: 40 },
-      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', step_id: 'register_municipality', label: 'Register in person within 5 days of arrival', severity: 'legal', students_with_deadline: 140, missed_pct: 25 },
+      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', step_id: 'register_gp', label: 'Register with a GP in your first 2 weeks', severity: 'advice', students_with_deadline: 140, missed_pct: 84 },
+      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', step_id: 'cak_letter', label: 'Respond to CAK letter to avoid a fine', severity: 'financial', students_with_deadline: 140, missed_pct: 57 },
+      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', step_id: 'add_bsn_bank', label: 'Add BSN to bank account (90–120 days)', severity: 'financial', students_with_deadline: 140, missed_pct: 48 },
+      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', step_id: 'dutch_insurance', label: 'Dutch health insurance starts today', severity: 'legal', students_with_deadline: 65, missed_pct: 43 },
+      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', step_id: 'book_registration', label: 'Book city hall appointment before travel', severity: 'advice', students_with_deadline: 140, missed_pct: 40 },
+      { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', step_id: 'register_municipality', label: 'Register in person within 5 days', severity: 'legal', students_with_deadline: 140, missed_pct: 25 },
 
-      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', step_id: 'register_gp', label: 'Register with a GP in your first two weeks', severity: 'advice', students_with_deadline: 60, missed_pct: 70 },
-      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', step_id: 'cak_letter', label: 'Respond to the CAK letter or get fined', severity: 'financial', students_with_deadline: 60, missed_pct: 59 },
-      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', step_id: 'book_registration', label: 'Book a registration appointment before you travel', severity: 'advice', students_with_deadline: 60, missed_pct: 49 },
-      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', step_id: 'dutch_insurance', label: 'Dutch health insurance must start today', severity: 'legal', students_with_deadline: 35, missed_pct: 46 },
-      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', step_id: 'add_bsn_bank', label: 'Add your BSN to your bank (check: 90 to 120 days)', severity: 'financial', students_with_deadline: 60, missed_pct: 46 },
-      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', step_id: 'register_municipality', label: 'Register in person within 5 days of arrival', severity: 'legal', students_with_deadline: 60, missed_pct: 38 },
-      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', step_id: 'residence_permit', label: 'Aim to have all permit documents in before the summer rush', severity: 'advice', students_with_deadline: 60, missed_pct: 13 },
+      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', step_id: 'register_gp', label: 'Register with a GP in your first 2 weeks', severity: 'advice', students_with_deadline: 60, missed_pct: 70 },
+      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', step_id: 'cak_letter', label: 'Respond to CAK letter to avoid a fine', severity: 'financial', students_with_deadline: 60, missed_pct: 59 },
+      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', step_id: 'book_registration', label: 'Book city hall appointment before travel', severity: 'advice', students_with_deadline: 60, missed_pct: 49 },
+      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', step_id: 'dutch_insurance', label: 'Dutch health insurance starts today', severity: 'legal', students_with_deadline: 35, missed_pct: 46 },
+      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', step_id: 'add_bsn_bank', label: 'Add BSN to bank account (90–120 days)', severity: 'financial', students_with_deadline: 60, missed_pct: 46 },
+      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', step_id: 'register_municipality', label: 'Register in person within 5 days', severity: 'legal', students_with_deadline: 60, missed_pct: 38 },
+      { institution_id: 'thuas', region: 'non_eu', intake_month: '2026-sep', step_id: 'residence_permit', label: 'Submit permit documents before summer', severity: 'advice', students_with_deadline: 60, missed_pct: 13 },
 
-      { institution_id: 'leiden', region: 'eu_eea', intake_month: '2026-sep', step_id: 'register_gp', label: 'Register with a GP in your first two weeks', severity: 'advice', students_with_deadline: 45, missed_pct: 80 },
-      { institution_id: 'leiden', region: 'eu_eea', intake_month: '2026-sep', step_id: 'cak_letter', label: 'Respond to the CAK letter or get fined', severity: 'financial', students_with_deadline: 45, missed_pct: 55 },
-      { institution_id: 'leiden', region: 'eu_eea', intake_month: '2026-sep', step_id: 'register_municipality', label: 'Register in person within 5 days of arrival', severity: 'legal', students_with_deadline: 45, missed_pct: 35 },
+      { institution_id: 'leiden', region: 'eu_eea', intake_month: '2026-sep', step_id: 'register_gp', label: 'Register with a GP in your first 2 weeks', severity: 'advice', students_with_deadline: 45, missed_pct: 80 },
+      { institution_id: 'leiden', region: 'eu_eea', intake_month: '2026-sep', step_id: 'cak_letter', label: 'Respond to CAK letter to avoid a fine', severity: 'financial', students_with_deadline: 45, missed_pct: 55 },
+      { institution_id: 'leiden', region: 'eu_eea', intake_month: '2026-sep', step_id: 'register_municipality', label: 'Register in person within 5 days', severity: 'legal', students_with_deadline: 45, missed_pct: 35 },
 
-      { institution_id: 'leiden', region: 'non_eu', intake_month: '2026-sep', step_id: 'cak_letter', label: 'Respond to the CAK letter or get fined', severity: 'financial', students_with_deadline: 20, missed_pct: 75 },
-      { institution_id: 'leiden', region: 'non_eu', intake_month: '2026-sep', step_id: 'register_gp', label: 'Register with a GP in your first two weeks', severity: 'advice', students_with_deadline: 20, missed_pct: 70 },
-      { institution_id: 'leiden', region: 'non_eu', intake_month: '2026-sep', step_id: 'register_municipality', label: 'Register in person within 5 days of arrival', severity: 'legal', students_with_deadline: 20, missed_pct: 40 }
+      { institution_id: 'leiden', region: 'non_eu', intake_month: '2026-sep', step_id: 'cak_letter', label: 'Respond to CAK letter to avoid a fine', severity: 'financial', students_with_deadline: 20, missed_pct: 75 },
+      { institution_id: 'leiden', region: 'non_eu', intake_month: '2026-sep', step_id: 'register_gp', label: 'Register with a GP in your first 2 weeks', severity: 'advice', students_with_deadline: 20, missed_pct: 70 },
+      { institution_id: 'leiden', region: 'non_eu', intake_month: '2026-sep', step_id: 'register_municipality', label: 'Register in person within 5 days', severity: 'legal', students_with_deadline: 20, missed_pct: 40 }
     ],
     scam_exposure: [
       { institution_id: 'thuas', region: 'eu_eea', intake_month: '2026-sep', students: 140, checks: 160, high_risk_pct: 30 },
@@ -307,7 +307,7 @@
       v.textContent = String(valNodeOrText);
     }
     tile.appendChild(v);
-    tile.appendChild(make('span', 'd', d));
+    if (d) { tile.appendChild(make('span', 'd', d)); }
     return tile;
   }
 
@@ -373,15 +373,11 @@
 
     if (banner) {
       clearChildren(banner);
-      banner.appendChild(make('strong', null, 'Prototype with fictional data. '));
-      banner.appendChild(document.createTextNode(
-        DEMO_PROTO.phones + ' simulated phones sent ' + DEMO_PROTO.counters.toLocaleString('en-GB') +
-        ' counters through the v2.1 disclosure pipeline (floor >= ' + DEMO_PROTO.min_group +
-        ', rounded to 5, tail-capped <=10% / >=90%).'
-      ));
+      banner.appendChild(make('strong', null, 'Demo data'));
+      banner.appendChild(document.createTextNode(' \u00b7 floor \u226515, rounded to 5'));
     }
     if (upd) {
-      upd.textContent = 'Figures rebuilt weekly · Release ' + DEMO_PROTO.generated;
+      upd.textContent = 'Release ' + DEMO_PROTO.generated;
     }
 
     var mySummary = DEMO_PROTO.summary.filter(function (r) { return r.institution_id === state.inst; });
@@ -425,9 +421,7 @@
     if (!S || S.hidden_under_floor || S.students < DEMO_PROTO.min_group) {
       var empty = make('div', 'empty');
       empty.appendChild(make('h2', null, months.length ? 'Nothing to show for ' + grpLabel + ' students in ' + state.month : 'Nothing to show yet'));
-      empty.appendChild(make('p', 'sub', months.length
-        ? 'Fewer than ' + DEMO_PROTO.min_group + ' ' + grpLabel + ' students from this intake share their totals (fewer than ' + DEMO_PROTO.min_group + '), so every figure for the group is withheld to protect anonymity.'
-        : 'Fewer than ' + DEMO_PROTO.min_group + ' students at ' + instName + ' share their totals in any intake, so nothing is released. Figures appear once ' + DEMO_PROTO.min_group + ' or more students take part.'));
+      empty.appendChild(make('p', 'sub', 'Fewer than ' + DEMO_PROTO.min_group + ' students — withheld for privacy.'));
       root.appendChild(empty);
       return;
     }
@@ -435,13 +429,12 @@
     /* 1. Summary Tiles */
     var sumSec = make('section');
     sumSec.appendChild(make('h2', null, S.intake_label + ', ' + grpLabel + ' students'));
-    sumSec.appendChild(make('p', 'sub', 'Approximately n=' + S.students + ' students (rounded to 5) who share anonymous totals. Each figure is a share of that group.'));
     var tiles = make('div', 'tiles');
-    tiles.appendChild(makeTile('Students taking part', 'n=' + S.students, 'rounded to nearest 5'));
-    tiles.appendChild(makeTile('Arrived', S.arrived_display || (S.arrived_pct !== null ? fmtRate(S.arrived_pct / 100, null, null) : null), 'arrival date has passed'));
-    tiles.appendChild(makeTile('Required steps done', S.avg_required_step_completion_pct + '%', 'average across required steps'));
-    tiles.appendChild(makeTile('Registered with a GP', S.gp_registered_pct + '%', 'huisarts step finished'));
-    tiles.appendChild(makeTile('Missed 5-day registration', S.missed_registration_deadline_pct + '%', 'legal deadline at municipality'));
+    tiles.appendChild(makeTile('Students taking part', 'n=' + S.students, ''));
+    tiles.appendChild(makeTile('Arrived', S.arrived_display || (S.arrived_pct !== null ? fmtRate(S.arrived_pct / 100, null, null) : null), ''));
+    tiles.appendChild(makeTile('Required steps done', S.avg_required_step_completion_pct + '%', ''));
+    tiles.appendChild(makeTile('Registered with a GP', S.gp_registered_pct + '%', ''));
+    tiles.appendChild(makeTile('Missed 5-day registration', S.missed_registration_deadline_pct + '%', ''));
     sumSec.appendChild(tiles);
     root.appendChild(sumSec);
 
@@ -461,14 +454,13 @@
 
     if (stuckHost && stuck.length) {
       stuckHost.appendChild(make('h2', null, 'Where students get stuck'));
-      stuckHost.appendChild(make('p', 'sub', 'The three required steps with the lowest completion rates (floor >= 15).'));
       var sg = make('div', 'stuck');
       stuck.forEach(function (r) {
         var tile = make('div', 'tile');
         tile.appendChild(make('span', 'k', PHASES[r.phase] || r.phase));
         tile.appendChild(make('span', 't', r.title));
         tile.appendChild(make('span', 'v', r.completed_display || (r.completed_pct + '%')));
-        tile.appendChild(make('span', 'd', 'finished, of ~' + r.students_with_step + ' students with this step'));
+        tile.appendChild(make('span', 'd', 'n=' + r.students_with_step));
         sg.appendChild(tile);
       });
       stuckHost.appendChild(sg);
@@ -478,7 +470,6 @@
     /* 3. Every step table */
     var stepSec = make('section');
     stepSec.appendChild(make('h2', null, 'Every step'));
-    stepSec.appendChild(make('p', 'sub', 'Share of students who finished each step. Figures built on fewer than 5 students show as hidden; extreme shares are capped at <= 10.0% / >= 90.0%.'));
     var card = make('div', 'card');
     var curPhase = null;
     steps.forEach(function (r) {
@@ -494,7 +485,7 @@
       }
       var row = make('div', 'row');
       var titleCol = make('span', 't', r.title + (DEMO_PROTO.steps[r.step_id] && DEMO_PROTO.steps[r.step_id].optional ? ' (optional)' : ''));
-      titleCol.appendChild(make('small', null, 'n=' + r.students_with_step + ' students have this step'));
+      titleCol.appendChild(make('small', null, 'n=' + r.students_with_step));
       row.appendChild(titleCol);
       row.appendChild(makeMeter(r.completed_pct, r.completed_display, false, 'Finished'));
 
@@ -559,7 +550,6 @@
     }).sort(function (a, b) { return (b.missed_pct || 0) - (a.missed_pct || 0); });
     var dlSec = make('section');
     dlSec.appendChild(make('h2', null, 'Missed deadlines'));
-    dlSec.appendChild(make('p', 'sub', 'Share of students whose deadline passed with the step not done.'));
     var dlCard = make('div', 'card');
     if (!dls.length) {
       dlCard.appendChild(make('div', 'row', 'No deadline has passed yet for this intake.'));
@@ -572,7 +562,7 @@
         var sev = r.severity === 'legal' ? ['must', 'Must'] : (r.severity === 'financial' ? ['fee', 'Fee'] : ['tip', 'Tip']);
         span.appendChild(make('span', 'tag ' + sev[0], sev[1]));
         span.appendChild(document.createTextNode(r.label));
-        span.appendChild(make('small', null, 'n=' + r.students_with_deadline + ' students have this deadline'));
+        span.appendChild(make('small', null, 'n=' + r.students_with_deadline));
         row.appendChild(span);
         row.appendChild(makeMeter(r.missed_pct, null, true, 'Missed'));
         dlCard.appendChild(row);
@@ -586,11 +576,10 @@
     });
     var scSec = make('section');
     scSec.appendChild(make('h2', null, 'Room scam checks'));
-    scSec.appendChild(make('p', 'sub', 'How often students tested a rental offer in the app.'));
     var scTiles = make('div', 'tiles');
     if (sc) {
-      scTiles.appendChild(makeTile('Checks done', 'n=' + sc.checks, 'by ~' + sc.students + ' students in total'));
-      scTiles.appendChild(makeTile('Ended "high risk"', sc.high_risk_pct === null ? null : (sc.high_risk_pct + '%'), 'of the checks done'));
+      scTiles.appendChild(makeTile('Checks done', 'n=' + sc.checks, ''));
+      scTiles.appendChild(makeTile('Ended "high risk"', sc.high_risk_pct === null ? null : (sc.high_risk_pct + '%'), ''));
     } else {
       scTiles.appendChild(makeTile('Scam checks', '—', 'No published checks yet'));
     }
@@ -603,9 +592,6 @@
   function renderLiveTable(table, intake) {
     var sec = make('section');
     sec.appendChild(make('h2', null, table.title || table.table_id));
-    if (table.metric) {
-      sec.appendChild(make('p', 'sub', 'Tier ' + (table.tier || '') + ' · Metric: ' + table.metric));
-    }
 
     var cells = Array.isArray(table.cells) ? table.cells : [];
     var withheld = Array.isArray(table.withheld) ? table.withheld : [];
@@ -706,8 +692,8 @@
 
     if (banner) {
       clearChildren(banner);
-      banner.appendChild(make('strong', null, 'Live API snapshot · ' + (meta.institution || 'authenticated') + '. '));
-      banner.appendChild(document.createTextNode(meta.note || 'Scoped disclosure-controlled aggregates only.'));
+      banner.appendChild(make('strong', null, 'Live · '));
+      banner.appendChild(document.createTextNode(meta.institution || 'authenticated'));
     }
     if (upd && meta.built_at) {
       upd.textContent = 'Last release: ' + meta.built_at;
@@ -742,7 +728,7 @@
     if (meta.state === 'empty' || !tables.length) {
       var empty = make('div', 'empty');
       empty.appendChild(make('h2', null, 'No statistics published yet'));
-      empty.appendChild(make('p', 'sub', 'Figures appear after the first scheduled snapshot release.'));
+      empty.appendChild(make('p', 'sub', 'No published snapshot yet.'));
       root.appendChild(empty);
       return;
     }

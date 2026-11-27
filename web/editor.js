@@ -14,8 +14,8 @@
   var STAFF_TOKEN_KEY = 'nl-staff-jwt';
   var STORAGE_KEY = 'nl-editor-v2';
 
-  var DEFAULT_BANNER_PREFIX = 'Prototype & live-ready editor. ';
-  var DEFAULT_BANNER_BODY = 'Shared cities (The Hague, Delft) enforce can_edit_city(): institutional offices create scoped overrides rather than overwriting shared municipal text, while single-school cities (Zoetermeer) are directly editable.';
+  var DEFAULT_BANNER_PREFIX = 'Demo mode';
+  var DEFAULT_BANNER_BODY = '';
 
   var rawTag = document.getElementById('content');
   var C = { facts: {}, institutions: [], municipalities: [], services: [], step_local: [], steps: [] };
@@ -514,16 +514,14 @@
     clearChildren(banner);
     if (E.mode === 'live' && E.liveData) {
       var meta = E.liveData.meta || {};
-      banner.appendChild(make('strong', null, 'Connected to Live /api/editor · '));
+      banner.appendChild(make('strong', null, 'Live · '));
       banner.appendChild(document.createTextNode(
-        'Role: ' + (meta.role || 'editor') +
-        (meta.institution_id ? ' (' + meta.institution_id + ')' : '') +
-        ' · Editable single-school cities: ' + ((meta.editable_cities || []).join(', ') || 'none (overrides only)') +
-        (typeof meta.stale_count === 'number' ? ' · Stale in scope: ' + meta.stale_count : '')
+        (meta.role || 'editor') +
+        (meta.institution_id ? ' (' + meta.institution_id + ')' : '')
       ));
     } else {
       banner.appendChild(make('strong', null, DEFAULT_BANNER_PREFIX));
-      banner.appendChild(document.createTextNode(DEFAULT_BANNER_BODY));
+      if (DEFAULT_BANNER_BODY) { banner.appendChild(document.createTextNode(DEFAULT_BANNER_BODY)); }
     }
   }
 
@@ -549,9 +547,9 @@
       var overdue = list.filter(function (x) { return STALE - age(x.d) < 0; }).length;
       var head = make('div');
       head.appendChild(make('h2', null, 'To check'));
-      head.appendChild(make('p', 'sub',
-        'Everything in your scope, oldest verification first (target: every ' + STALE + ' days). ' +
-        (overdue ? overdue + ' items are overdue.' : 'Nothing is overdue today.')));
+      if (overdue > 0) {
+        head.appendChild(make('p', 'sub', overdue + ' overdue'));
+      }
       root.appendChild(head);
 
       var card = make('div', 'card');
@@ -604,11 +602,15 @@
       var lTag = instLabel();
       var lHead = make('div');
       lHead.appendChild(make('h2', null, 'Local texts'));
-      lHead.appendChild(make('p', 'sub', 'City-specific guidance shown on steps. Shared cities lock municipal rows for institutional editors; use "Create ' + lTag + ' override" to tailor guidance for your own students.'));
       root.appendChild(lHead);
 
       var tools = make('div', 'tools');
       tools.appendChild(makeCitySelect());
+      if (isSharedCity(E.city) && !r.all) {
+        var lBadge = make('span', 'tag locktag', 'Shared city \u2014 override only');
+        lBadge.style.marginBottom = '12px';
+        tools.appendChild(lBadge);
+      }
       root.appendChild(tools);
 
       var lCard = make('div', 'card');
@@ -660,7 +662,7 @@
             form.setAttribute('data-save', isOverrideOpen ? 'local-override' : 'local');
             form.setAttribute('data-id', k);
             addFormField(form, isOverrideOpen ? (lTag + ' override text shown to students') : 'Text shown to students', makeTextarea('body', 'f_body', l.body));
-            addFormField(form, 'Change reason (min 3 characters, stored in staff_change)', makeInput('reason', 'f_reason', '', 'text', { placeholder: 'e.g. Updated arrival days instructions', required: true, minLength: 3 }));
+            addFormField(form, 'Reason', makeInput('reason', 'f_reason', '', 'text', { placeholder: 'e.g. Updated arrival days instructions', required: true, minLength: 3 }));
             if (E.formErr) { form.appendChild(make('div', 'err-msg', E.formErr)); }
             var acts = make('div', 'acts');
             var saveBtn = make('button', 'btn fill', isOverrideOpen ? ('Save ' + lTag + ' override') : 'Save');
@@ -691,7 +693,6 @@
 
       var sHead = make('div');
       sHead.appendChild(make('h2', null, 'Services'));
-      sHead.appendChild(make('p', 'sub', 'GPs, housing, help desks, government counters and communities shown under Local help. In shared cities, ' + sTag + ' can add or edit ' + sTag + '-scoped services while shared municipal entries stay protected by can_edit_city().'));
       root.appendChild(sHead);
 
       var sTools = make('div', 'tools');
@@ -716,6 +717,11 @@
       addBtn.type = 'button';
       addBtn.setAttribute('data-open', 'service:new');
       sTools.appendChild(addBtn);
+      if (isSharedCity(E.city) && !r.all) {
+        var sBadge = make('span', 'tag locktag', 'Shared city \u2014 override only');
+        sBadge.style.marginBottom = '12px';
+        sTools.appendChild(sBadge);
+      }
       root.appendChild(sTools);
 
       var makeSvcForm = function (s, modeFlag) {
@@ -749,7 +755,7 @@
         chkLbl.appendChild(document.createTextNode('Taking new students now'));
         form.appendChild(chkLbl);
 
-        addFormField(form, 'Change reason (min 3 characters)', makeInput('reason', 'f_reason', '', 'text', { placeholder: 'e.g. Confirmed 2026 intake acceptance & HTTPS URL', required: true, minLength: 3 }));
+        addFormField(form, 'Reason', makeInput('reason', 'f_reason', '', 'text', { placeholder: 'e.g. Confirmed 2026 intake acceptance & HTTPS URL', required: true, minLength: 3 }));
         if (E.formErr) { form.appendChild(make('div', 'err-msg', E.formErr)); }
 
         var acts = make('div', 'acts');
@@ -831,7 +837,6 @@
     if (E.tab === 'figures') {
       var fHead = make('div');
       fHead.appendChild(make('h2', null, 'Figures'));
-      fHead.appendChild(make('p', 'sub', 'National figures and deadlines (e.g. CAK fine). Publishing starts a new dated row and automatically sets valid_to on the previous active version.'));
       root.appendChild(fHead);
 
       var fCard = make('div', 'card');
@@ -865,8 +870,7 @@
           addFormField(rowf, 'New value' + (f.unit ? ' (' + f.unit + ')' : ''), makeInput('value', 'f_value', '', 'text', { required: true }));
           addFormField(rowf, 'Valid from', makeInput('from', 'f_from', TODAY, 'date', { required: true }));
           form.appendChild(rowf);
-          addFormField(form, 'Change reason (min 3 characters)', makeInput('reason', 'f_reason', '', 'text', { placeholder: 'e.g. Annual CAK 2027 rate adjustment', required: true, minLength: 3 }));
-          form.appendChild(make('p', 'meta', 'Previous value (' + f.value + ') stays preserved in version history.'));
+          addFormField(form, 'Reason', makeInput('reason', 'f_reason', '', 'text', { placeholder: 'e.g. Annual CAK 2027 rate adjustment', required: true, minLength: 3 }));
           if (E.formErr) { form.appendChild(make('div', 'err-msg', E.formErr)); }
           var acts = make('div', 'acts');
           var sub = make('button', 'btn fill', 'Publish new version');
@@ -883,14 +887,13 @@
       });
       root.appendChild(fCard);
       if (!r.all) {
-        root.appendChild(make('p', 'lock', 'Only the national project team (super_admin) changes Figures. Switch role in the top right to test publishing a new version.'));
+        root.appendChild(make('p', 'lock', 'Project team only.'));
       }
     }
 
     if (E.tab === 'steps') {
       var stHead = make('div');
       stHead.appendChild(make('h2', null, 'Steps'));
-      stHead.appendChild(make('p', 'sub', 'National student journey steps. Local city differences belong under Local texts.'));
       root.appendChild(stHead);
 
       var stCard = make('div', 'card');
@@ -942,16 +945,15 @@
       });
       root.appendChild(stCard);
       if (E.mode === 'live') {
-        root.appendChild(make('p', 'lock', 'National Steps are stored in the repository build rather than /api/editor. Edits saved here queue as local drafts for Export JSON.'));
+        root.appendChild(make('p', 'lock', 'Edits export as JSON.'));
       } else if (!r.all) {
-        root.appendChild(make('p', 'lock', 'Only the project team edits national steps. Switch role in the top right to edit.'));
+        root.appendChild(make('p', 'lock', 'Project team only.'));
       }
     }
 
     if (E.tab === 'changes') {
       var chHead = make('div');
-      chHead.appendChild(make('h2', null, 'Changes (staff_change audit log)'));
-      chHead.appendChild(make('p', 'sub', 'Saved edits queue here until Publish. Every change records actor, reason, and before/after diff.'));
+      chHead.appendChild(make('h2', null, 'Changes'));
       root.appendChild(chHead);
 
       var renderChangeCard = function (items, emptyMsg) {

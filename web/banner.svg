@@ -1,0 +1,115 @@
+<!-- Copyright (c) 2026 Eirini Konidari. All rights reserved. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 320" width="1280" height="320" role="img" aria-label="Netherlanded — Arrival guidance for international students in the Netherlands">
+  <defs>
+    <clipPath id="bannerClip">
+      <rect width="1280" height="320" rx="12"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#bannerClip)">
+    <!-- Flat, calm polder green background -->
+    <rect width="1280" height="320" fill="#1d5a3a"/>
+
+    <!-- Quiet monochrome country skyline (exact paths from netherlanded-app.html) -->
+    <g transform="translate(520, 165.7) scale(1.88)" stroke="#8fbfa2" stroke-opacity="0.52" stroke-width="1.1">
+      <path fill="#1d5a3a" stroke-linejoin="round" d="M10 64 V50 h2 V64 Z"/>
+      <path fill="#1d5a3a" stroke-linejoin="round" d="M11 36 a8 8 0 1 1 -0.01 0 Z"/>
+      <path fill="#1d5a3a" stroke-linejoin="round" d="M20 64 V40 h2 v-4 h2.5 v-4 h4 v4 h2.5 v4 h2 V64 Z"/>
+      <path fill="#1d5a3a" stroke-linejoin="round" d="M33 64 V34 q0 -3 2.5 -4 V25 h8 v5 q2.5 1 2.5 4 V64 Z"/>
+      <path fill="#1d5a3a" stroke-linejoin="round" d="M46 64 V38 L52 31 L58 38 V64 Z"/>
+      <path fill="#1d5a3a" stroke-linejoin="round" d="M58 64 V36 h2.5 v-4 h2.5 v-4 h4 v4 h2.5 v4 h2.5 V64 Z"/>
+      <path fill="#1d5a3a" stroke-linejoin="round" d="M72 64 V40 q0 -5 3 -6 q3 -4 6 0 q3 1 3 6 V64 Z"/>
+      <path fill="#1d5a3a" stroke-linejoin="round" d="M102 64 V46 L110 40 L118 46 V64 Z"/>
+      <path fill="#1d5a3a" stroke-linejoin="round" d="M90 64 V34 H102 V64 Z"/>
+      <path fill="#1d5a3a" stroke-linejoin="round" d="M90 34 L96 10 L102 34 Z"/>
+      <path fill="#1d5a3a" stroke-linejoin="round" d="M290 56 q0 4 3 4 q3 0 3 -4 l-1.5 1.5 l-1.5 -2 l-1.5 2 Z"/>
+      <path fill="#1d5a3a" stroke-linejoin="round" d="M296 54 q0 4 3 4 q3 0 3 -4 l-1.5 1.5 l-1.5 -2 l-1.5 2 Z"/>
+      <path fill="#1d5a3a" stroke-linejoin="round" d="M302 56 q0 4 3 4 q3 0 3 -4 l-1.5 1.5 l-1.5 -2 l-1.5 2 Z"/>
+      <path fill="#1d5a3a" stroke-linejoin="round" d="M308 54 q0 4 3 4 q3 0 3 -4 l-1.5 1.5 l-1.5 -2 l-1.5 2 Z"/>
+      <path fill="#1d5a3a" stroke-linejoin="round" d="M314 56 q0 4 3 4 q3 0 3 -4 l-1.5 1.5 l-1.5 -2 l-1.5 2 Z"/>
+      <path fill="#1d5a3a" stroke-linejoin="round" d="M320 54 q0 4 3 4 q3 0 3 -4 l-1.5 1.5 l-1.5 -2 l-1.5 2 Z"/>
+      <path fill="#1d5a3a" stroke-linejoin="round" d="M326 56 q0 4 3 4 q3 0 3 -4 l-1.5 1.5 l-1.5 -2 l-1.5 2 Z"/>
+      <path fill="#1d5a3a" stroke-linejoin="round" d="M375 64 L378 30 H388 L391 64 Z"/>
+      <path fill="#1d5a3a" stroke-linejoin="round" d="M377 30 V24 H389 V30 Z"/>
+      <path fill="#1d5a3a" stroke-linejoin="round" d="M376 24 L383 18 L390 24 Z"/>
+      <g transform="translate(5 0)">
+        <path fill="#1d5a3a" stroke-linejoin="round" d="M170 50 H186 Q190 50 190 54 V57 H188 V64 H186 V57 H174 V64 H172 V57 H170 Z"/>
+        <path fill="#1d5a3a" stroke-linejoin="round" d="M170 50 L164 51 V56 L170 56 Z"/>
+        <path fill="none" stroke-linecap="round" stroke-linejoin="round" d="M165 51 l-2 -2 M190 52 q3 2 2 7 M176 52 a2 2 0 0 0 4 2"/>
+      </g>
+      <g transform="translate(5 0)">
+        <path fill="#1d5a3a" stroke-linejoin="round" d="M194 64 V48 L211 34 L228 48 V64 Z"/>
+        <path fill="none" stroke-linecap="round" stroke-linejoin="round" d="M208 64 v-8 h6 v8 M199 54 h5 M219 54 h5 M205 44 h12"/>
+      </g>
+      <g transform="translate(3 0)">
+        <path fill="#1d5a3a" stroke-linejoin="round" d="M237 64 V48 h2 V64 Z"/>
+        <path fill="#1d5a3a" stroke-linejoin="round" d="M238 34 a7 7 0 1 1 -0.01 0 Z"/>
+      </g>
+      <path fill="#1d5a3a" stroke-linejoin="round" d="M135 64 L139 36 H153 L157 64 Z"/>
+      <path fill="#1d5a3a" stroke-linejoin="round" d="M139 36 q7 -10 14 0 Z"/>
+      <path fill="none" stroke-linecap="round" stroke-linejoin="round" d="M132 50 H160 M143 64 v-6 a3 3 0 0 1 6 0 v6"/>
+      <g transform="translate(146 30) scale(0.9)">
+        <g transform="rotate(45)">
+          <path fill="none" stroke-linecap="round" stroke-linejoin="round" d="M0 0 V-24"/>
+          <path fill="#1d5a3a" stroke-linejoin="round" d="M1 -6 h5 v-18 h-5 Z"/>
+          <path fill="none" stroke-linecap="round" stroke-linejoin="round" d="M1 -12 h5 M1 -18 h5"/>
+        </g>
+        <g transform="rotate(135)">
+          <path fill="none" stroke-linecap="round" stroke-linejoin="round" d="M0 0 V-24"/>
+          <path fill="#1d5a3a" stroke-linejoin="round" d="M1 -6 h5 v-18 h-5 Z"/>
+          <path fill="none" stroke-linecap="round" stroke-linejoin="round" d="M1 -12 h5 M1 -18 h5"/>
+        </g>
+        <g transform="rotate(225)">
+          <path fill="none" stroke-linecap="round" stroke-linejoin="round" d="M0 0 V-24"/>
+          <path fill="#1d5a3a" stroke-linejoin="round" d="M1 -6 h5 v-18 h-5 Z"/>
+          <path fill="none" stroke-linecap="round" stroke-linejoin="round" d="M1 -12 h5 M1 -18 h5"/>
+        </g>
+        <g transform="rotate(315)">
+          <path fill="none" stroke-linecap="round" stroke-linejoin="round" d="M0 0 V-24"/>
+          <path fill="#1d5a3a" stroke-linejoin="round" d="M1 -6 h5 v-18 h-5 Z"/>
+          <path fill="none" stroke-linecap="round" stroke-linejoin="round" d="M1 -12 h5 M1 -18 h5"/>
+        </g>
+      </g>
+      <path fill="#1d5a3a" stroke-linejoin="round" d="M345 64 L348 44 H358 L361 64 Z"/>
+      <path fill="#1d5a3a" stroke-linejoin="round" d="M348 44 q5 -7 10 0 Z"/>
+      <path fill="none" stroke-linecap="round" stroke-linejoin="round" d="M350.5 64 v-5 a2.5 2.5 0 0 1 5 0 v5"/>
+      <g transform="translate(353 38) scale(0.68)">
+        <g transform="rotate(45)">
+          <path fill="none" stroke-linecap="round" stroke-linejoin="round" d="M0 0 V-24"/>
+          <path fill="#1d5a3a" stroke-linejoin="round" d="M1 -6 h5 v-18 h-5 Z"/>
+          <path fill="none" stroke-linecap="round" stroke-linejoin="round" d="M1 -12 h5 M1 -18 h5"/>
+        </g>
+        <g transform="rotate(135)">
+          <path fill="none" stroke-linecap="round" stroke-linejoin="round" d="M0 0 V-24"/>
+          <path fill="#1d5a3a" stroke-linejoin="round" d="M1 -6 h5 v-18 h-5 Z"/>
+          <path fill="none" stroke-linecap="round" stroke-linejoin="round" d="M1 -12 h5 M1 -18 h5"/>
+        </g>
+        <g transform="rotate(225)">
+          <path fill="none" stroke-linecap="round" stroke-linejoin="round" d="M0 0 V-24"/>
+          <path fill="#1d5a3a" stroke-linejoin="round" d="M1 -6 h5 v-18 h-5 Z"/>
+          <path fill="none" stroke-linecap="round" stroke-linejoin="round" d="M1 -12 h5 M1 -18 h5"/>
+        </g>
+        <g transform="rotate(315)">
+          <path fill="none" stroke-linecap="round" stroke-linejoin="round" d="M0 0 V-24"/>
+          <path fill="#1d5a3a" stroke-linejoin="round" d="M1 -6 h5 v-18 h-5 Z"/>
+          <path fill="none" stroke-linecap="round" stroke-linejoin="round" d="M1 -12 h5 M1 -18 h5"/>
+        </g>
+      </g>
+      <path fill="none" stroke-linecap="round" stroke-linejoin="round" d="M23.5 46 h2.5 M28 46 h2.5 M23.5 53 h2.5 M28 53 h2.5 M36.5 40 h6 M36.5 47 h6 M38 64 v-6 h3 v6 M49 44 h6 M49 51 h6 M61 42 h8 M61 49 h8 M63.5 64 v-6 h3 v6 M75 46 h6 M75 53 h6 M96 10 V4 M94 6 h4 M93.5 64 v-6 a2.5 2.5 0 0 1 5 0 v6 M108 58 v-5 a2 2 0 0 1 4 0 v5 M98.5 41 a2.5 2.5 0 1 1 -5 0 a2.5 2.5 0 1 1 5 0 M262 58 a6 6 0 1 1 -12 0 a6 6 0 1 1 12 0 M284 58 a6 6 0 1 1 -12 0 a6 6 0 1 1 12 0 M256 58 L262 48 H275 L278 58 M262 48 L268 58 L275 48 M268 58 H256 M260 45 h5 M275 48 l-1.5 -5 h4 M293 60 V64 M299 58 V64 M305 60 V64 M311 58 V64 M317 60 V64 M323 58 V64 M329 60 V64 M377.3 40 h11.4 M376.5 50 h13 M380 27 h6 M394 64 q1 -6 3 -8 M397 64 q0 -5 2 -6"/>
+    </g>
+
+    <!-- Subtle polder base & horizon line -->
+    <rect x="0" y="286" width="1280" height="34" fill="#174a2f"/>
+    <line x1="0" y1="286" x2="1280" y2="286" stroke="#8fbfa2" stroke-opacity="0.45" stroke-width="1.25"/>
+
+    <!-- Minimal Horizon Disc logo (exact paths from netherlanded-app.html / DESIGN_SYSTEM.md) -->
+    <g transform="translate(64, 96) scale(0.5)">
+      <path d="M8 46 A40 40 0 0 1 88 46 Z" fill="#f3c623"/>
+      <path d="M8 50 A40 40 0 0 0 88 50 Z" fill="#ffffff" fill-opacity="0.6"/>
+    </g>
+
+    <!-- Minimal wordmark & calm subtitle -->
+    <text x="126" y="134" font-family="Georgia, Cambria, serif" font-size="44" font-weight="700" fill="#ffffff" letter-spacing="-0.5">Netherlanded</text>
+    <text x="64" y="178" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" fill="#d3e6da" fill-opacity="0.9">Arrival guidance for international students in the Netherlands</text>
+  </g>
+</svg>
